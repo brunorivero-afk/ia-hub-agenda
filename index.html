@@ -725,9 +725,11 @@ function checkConflict(){
   const data=document.getElementById('f-data').value;
   const ini=document.getElementById('f-inicio').value;
   const fim=document.getElementById('f-fim').value;
-  if(!sala||!data||!ini||!fim)return;
+  const btnSave=document.querySelector('#ov-modal .btn-p');
+  if(!sala||!data||!ini||!fim){if(btnSave)btnSave.disabled=false;return;}
   const conflict=eventos.some(e=>String(e.id)!==String(editId)&&e.sala===sala&&e.data===data&&!(fim<=e.hora_inicio||ini>=e.hora_fim));
   document.getElementById('conflict-warn').style.display=conflict?'block':'none';
+  if(btnSave){btnSave.disabled=conflict;btnSave.style.opacity=conflict?'.4':'1';btnSave.style.cursor=conflict?'not-allowed':'pointer';}
 }
 
 async function saveEvento(){
@@ -739,7 +741,7 @@ async function saveEvento(){
   if(!titulo||!sala||!data||!ini||!fim){toast('Preencha os campos obrigatórios');return;}
   if(ini>=fim){toast('O horário de término deve ser após o início');return;}
   const conflict=eventos.some(e=>String(e.id)!==String(editId)&&e.sala===sala&&e.data===data&&!(fim<=e.hora_inicio||ini>=e.hora_fim));
-  if(conflict&&!confirm('Há um conflito de horário nesta sala. Confirmar mesmo assim?'))return;
+  if(conflict){toast('Esta sala já está reservada neste horário.');return;}
 
   // Montar participantes
   const internos=getIntParticipants();
