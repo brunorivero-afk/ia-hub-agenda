@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Agenda IA Hub</title>
+<meta name="theme-color" content="#0a1628">
+<link rel="manifest" href="manifest.json">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;font-size:14px;background:#f5f0e8;color:#1a1a1a;}
+:root{--navy:#0a1628;--gold:#d4a017;--lounge:#7c3aed;--r1:#1d4ed8;--r2:#0a1628;--bg:#f5f0e8;--border:#e8e4dc;--muted:#6b7280;--red:#dc2626;--green:#059669;}
+
+/* ===== LOGIN ===== */
+#screen-login{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:var(--navy);}
+.login-logo{text-align:center;margin-bottom:28px;}
+.login-title{font-size:22px;font-weight:700;color:#fff;letter-spacing:-.5px;}
+.login-sub{font-size:12px;color:#64748b;margin-top:4px;letter-spacing:.08em;text-transform:uppercase;}
+.login-card{background:#fff;border-radius:16px;padding:28px 24px;width:320px;max-width:100%;}
+.login-card h2{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:18px;text-align:center;}
+.lf{margin-bottom:14px;}
+.lf label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px;}
+.lf select,.lf input{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;color:var(--navy);background:#fff;outline:none;}
+.lf select:focus,.lf input:focus{border-color:var(--gold);}
+.pin-dots{display:flex;gap:8px;justify-content:center;margin:6px 0;}
+.pin-dot{width:50px;height:56px;border:2px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:var(--navy);transition:border .15s,background .15s;}
+.pin-dot.filled{border-color:var(--gold);background:#fdf8ed;}
+.pin-dot.err{border-color:var(--red);background:#fff1f2;animation:shake .3s;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
+.kk{background:#f5f5f3;border:none;border-radius:10px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;color:var(--navy);transition:background .1s;}
+.kk:hover{background:#e8e4dc;}
+.kk:active,.kk.tap{background:var(--gold);color:#fff;}
+.kk.del{background:#fee2e2;color:var(--red);}
+.kk.del:hover{background:#fecaca;}
+#login-err{display:none;text-align:center;color:var(--red);font-size:12px;margin-top:8px;}
+
+/* ===== APP ===== */
+#screen-app{display:none;height:100vh;flex-direction:column;overflow:hidden;}
+.topbar{background:var(--navy);color:#fff;height:54px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.tb-brand{display:flex;align-items:center;gap:10px;}
+.tb-brand svg{width:30px;height:30px;}
+.tb-brand span{font-size:15px;font-weight:700;color:#fff;}
+.tb-right{display:flex;align-items:center;gap:8px;}
+.tb-user{font-size:13px;color:#94a3b8;}
+.tb-btn{background:rgba(255,255,255,.12);border:none;border-radius:8px;padding:6px 12px;color:#fff;cursor:pointer;font-size:13px;font-weight:500;}
+.tb-btn:hover{background:rgba(255,255,255,.22);}
+.tb-btn.gold{background:var(--gold);color:var(--navy);}
+
+.cal-shell{flex:1;overflow:hidden;display:flex;flex-direction:column;padding:14px 16px;}
+
+/* Nav */
+.cal-nav{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.nav-btn{background:#fff;border:1.5px solid var(--border);border-radius:8px;padding:6px 14px;font-size:13px;cursor:pointer;color:var(--navy);font-weight:500;}
+.nav-btn:hover,.nav-btn.act{background:var(--navy);color:#fff;border-color:var(--navy);}
+.nav-title{font-size:15px;font-weight:700;color:var(--navy);margin:0 6px;}
+.nav-spacer{flex:1;}
+.view-btns{display:flex;gap:0;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;background:#fff;}
+.vbtn{border:none;padding:6px 14px;font-size:13px;cursor:pointer;background:#fff;color:var(--muted);font-weight:500;}
+.vbtn.act{background:var(--navy);color:#fff;}
+
+/* Legend */
+.legend{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.leg-pill{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;color:#fff;letter-spacing:.03em;}
+
+/* ===== WEEK VIEW ===== */
+.cal-scroller{flex:1;overflow:auto;background:#fff;border:1px solid var(--border);border-radius:12px;}
+table.wk{width:100%;border-collapse:collapse;min-width:580px;}
+table.wk th{position:sticky;top:0;z-index:10;background:#fff;padding:9px 6px;text-align:center;font-size:12px;font-weight:600;color:var(--muted);border-bottom:2px solid var(--border);}
+table.wk th.is-today{color:var(--navy);background:#eff6ff;}
+table.wk td{border-bottom:1px solid #f5f5f3;border-right:1px solid #f5f5f3;padding:2px 3px;vertical-align:top;cursor:pointer;}
+table.wk td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-right:8px;white-space:nowrap;width:44px;position:sticky;left:0;background:#fff;z-index:5;cursor:default;}
+table.wk td:hover:not(.time-col){background:#f0f6ff;}
+.wk-evt{border-radius:5px;padding:3px 7px;margin-bottom:3px;color:#fff;font-size:11px;line-height:1.35;cursor:pointer;}
+.wk-evt:hover{opacity:.82;}
+.wk-evt .et{font-size:9px;opacity:.8;}
+.wk-evt .en{font-weight:600;}
+
+/* ===== DAY VIEW (rooms as columns) ===== */
+table.dv{width:100%;border-collapse:collapse;}
+table.dv th{position:sticky;top:0;z-index:10;padding:10px 8px;text-align:center;font-size:12px;font-weight:700;color:#fff;border-bottom:2px solid rgba(255,255,255,.2);}
+table.dv th.time-col{background:#fff;color:var(--muted);border-bottom-color:var(--border);}
+table.dv td{border-bottom:1px solid #f5f5f3;border-right:1px solid var(--border);padding:2px 4px;vertical-align:top;cursor:pointer;min-width:110px;}
+table.dv td:hover:not(.time-col){background:#f0f6ff;}
+table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-right:8px;white-space:nowrap;width:44px;position:sticky;left:0;background:#fff;z-index:5;cursor:default;}
+.dv-evt{border-radius:5px;padding:3px 7px;margin-bottom:3px;color:#fff;font-size:11px;cursor:pointer;}
+.dv-evt:hover{opacity:.82;}
+.dv-evt .et{font-size:9px;opacity:.8;}
+.dv-evt .en{font-weight:600;}
+.dv-th-lounge{background:var(--lounge);}
+.dv-th-r1{background:var(--r1);}
+.dv-th-r2{background:var(--r2);}
+
+/* ===== MODAL ===== */
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;padding:16px;}
+.ov.open{display:flex;}
+.modal{background:#fff;border-radius:16px;padding:26px;width:480px;max-width:100%;max-height:90vh;overflow-y:auto;position:relative;}
+.modal h2{font-size:17px;font-weight:600;color:var(--navy);margin-bottom:18px;}
+.mcls{position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;line-height:1;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.fg{margin-bottom:14px;}
+.fg label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+.fg input,.fg select,.fg textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;color:var(--navy);outline:none;transition:border .15s;background:#fff;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold);}
+.fg textarea{height:64px;resize:none;}
+.parts-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.pck{display:flex;align-items:center;gap:6px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;transition:border .1s,background .1s;}
+.pck input[type=checkbox]{accent-color:var(--gold);width:14px;height:14px;cursor:pointer;}
+.pck.sel{border-color:var(--gold);background:#fdf8ed;}
+.mbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap;}
+.btn-p{background:var(--navy);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer;}
+.btn-p:hover{background:#132035;}
+.btn-s{background:#fff;color:var(--navy);border:1.5px solid var(--border);border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;font-weight:500;}
+.btn-s:hover{background:var(--bg);}
+.btn-d{background:#fff;color:var(--red);border:1.5px solid #fecaca;border-radius:8px;padding:10px 20px;font-size:14px;cursor:pointer;font-weight:500;}
+.btn-d:hover{background:#fff1f2;}
+.gcal-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#1d4ed8;text-decoration:none;padding:7px 14px;border:1.5px solid #bfdbfe;border-radius:8px;background:#eff6ff;margin-top:8px;font-weight:500;}
+.gcal-btn:hover{background:#dbeafe;}
+.conflict-box{background:#fff1f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:12px;}
+.detail-room{display:inline-block;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:700;color:#fff;margin-bottom:10px;}
+
+/* ===== ADMIN ===== */
+#screen-admin{display:none;flex-direction:column;height:100vh;overflow:hidden;}
+.admin-body{flex:1;overflow-y:auto;padding:20px;}
+.a-section{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:14px;}
+.a-section h3{font-size:14px;font-weight:600;color:var(--navy);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
+.mbr-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f3;}
+.mbr-row:last-child{border-bottom:none;}
+.mbr-name{flex:1;font-size:14px;font-weight:500;}
+.mbr-pin-inp{width:80px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;text-align:center;}
+.mbr-pin-inp:focus{border-color:var(--gold);outline:none;}
+.tag-admin{font-size:10px;background:#fdf8ed;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:1px 7px;font-weight:700;}
+.tog-ativo{font-size:11px;padding:3px 8px;border-radius:10px;border:none;cursor:pointer;font-weight:600;}
+.tog-ativo.on{background:#dcfce7;color:#14532d;}
+.tog-ativo.off{background:#fee2e2;color:#991b1b;}
+.pin-change-section{border-top:1px solid var(--border);margin-top:16px;padding-top:16px;}
+
+/* ===== TOAST ===== */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;z-index:999;pointer-events:none;transition:transform .3s;white-space:nowrap;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+
+/* ===== LOADING ===== */
+#screen-loading{display:flex;align-items:center;justify-content:center;height:100vh;background:var(--navy);}
+.spinner{width:40px;height:40px;border:3px solid rgba(212,160,23,.3);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:600px){
+  .frow{grid-template-columns:1fr;}
+  .tb-user{display:none;}
+  .cal-nav-title{font-size:13px;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="screen-loading"><div class="spinner"></div></div>
+
+<!-- LOGIN -->
+<div id="screen-login" style="display:none">
+  <div class="login-logo">
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="64" height="64" rx="14" fill="#d4a017" fill-opacity=".18"/>
+      <circle cx="32" cy="32" r="7" fill="#d4a017"/>
+      <g stroke="#d4a017" stroke-width="2.2" stroke-linecap="round">
+        <line x1="32" y1="32" x2="32" y2="12"/><circle cx="32" cy="10" r="2.5" fill="#d4a017" stroke="none"/>
+        <line x1="32" y1="32" x2="49.3" y2="22"/><circle cx="51" cy="21" r="2.5" fill="#d4a017" stroke="none"/>
+        <line x1="32" y1="32" x2="49.3" y2="42"/><circle cx="51" cy="43" r="2.5" fill="#d4a017" stroke="none"/>
+        <line x1="32" y1="32" x2="32" y2="52"/><circle cx="32" cy="54" r="2.5" fill="#d4a017" stroke="none"/>
+        <line x1="32" y1="32" x2="14.7" y2="42"/><circle cx="13" cy="43" r="2.5" fill="#d4a017" stroke="none"/>
+        <line x1="32" y1="32" x2="14.7" y2="22"/><circle cx="13" cy="21" r="2.5" fill="#d4a017" stroke="none"/>
+      </g>
+    </svg>
+    <div class="login-title" style="margin-top:10px">IA Hub</div>
+    <div class="login-sub">Reserva de Salas</div>
+  </div>
+  <div class="login-card">
+    <h2>Identificação</h2>
+    <div class="lf">
+      <label>Seu nome</label>
+      <select id="sel-nome" onchange="onNomeChange()">
+        <option value="">Selecione...</option>
+      </select>
+    </div>
+    <div class="lf">
+      <label>PIN (4 dígitos)</label>
+      <div class="pin-dots" id="pin-dots">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+      <div class="keypad">
+        <button class="kk" onclick="pinKey('1')">1</button>
+        <button class="kk" onclick="pinKey('2')">2</button>
+        <button class="kk" onclick="pinKey('3')">3</button>
+        <button class="kk" onclick="pinKey('4')">4</button>
+        <button class="kk" onclick="pinKey('5')">5</button>
+        <button class="kk" onclick="pinKey('6')">6</button>
+        <button class="kk" onclick="pinKey('7')">7</button>
+        <button class="kk" onclick="pinKey('8')">8</button>
+        <button class="kk" onclick="pinKey('9')">9</button>
+        <div></div>
+        <button class="kk" onclick="pinKey('0')">0</button>
+        <button class="kk del" onclick="pinDel()">⌫</button>
+      </div>
+    </div>
+    <div id="login-err">PIN incorreto. Tente novamente.</div>
+  </div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="screen-app" style="display:none;flex-direction:column;height:100vh;overflow:hidden;">
+  <div class="topbar">
+    <div class="tb-brand">
+      <svg width="30" height="30" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="14" fill="#d4a017" fill-opacity=".18"/><circle cx="32" cy="32" r="7" fill="#d4a017"/><g stroke="#d4a017" stroke-width="2.5" stroke-linecap="round"><line x1="32" y1="32" x2="32" y2="12"/><circle cx="32" cy="10" r="2.5" fill="#d4a017" stroke="none"/><line x1="32" y1="32" x2="49.3" y2="22"/><circle cx="51" cy="21" r="2.5" fill="#d4a017" stroke="none"/><line x1="32" y1="32" x2="49.3" y2="42"/><circle cx="51" cy="43" r="2.5" fill="#d4a017" stroke="none"/><line x1="32" y1="32" x2="32" y2="52"/><circle cx="32" cy="54" r="2.5" fill="#d4a017" stroke="none"/><line x1="32" y1="32" x2="14.7" y2="42"/><circle cx="13" cy="43" r="2.5" fill="#d4a017" stroke="none"/><line x1="32" y1="32" x2="14.7" y2="22"/><circle cx="13" cy="21" r="2.5" fill="#d4a017" stroke="none"/></g></svg>
+      <span>IA Hub — Reservas</span>
+    </div>
+    <div class="tb-right">
+      <span class="tb-user" id="tb-username"></span>
+      <button class="tb-btn" id="btn-meu-pin" onclick="openMeuPin()" title="Alterar meu PIN">🔑</button>
+      <button class="tb-btn gold" id="btn-admin" style="display:none" onclick="showAdmin()">⚙ Admin</button>
+      <button class="tb-btn" onclick="doLogout()">Sair</button>
+    </div>
+  </div>
+  <div class="cal-shell">
+    <div class="cal-nav">
+      <button class="nav-btn" onclick="navDate(-1)">◀</button>
+      <span class="nav-title" id="nav-title"></span>
+      <button class="nav-btn" onclick="navDate(1)">▶</button>
+      <button class="nav-btn" onclick="goToday()">Hoje</button>
+      <div class="nav-spacer"></div>
+      <div class="view-btns">
+        <button class="vbtn act" id="vbtn-week" onclick="setView('week')">Semana</button>
+        <button class="vbtn" id="vbtn-day" onclick="setView('day')">Dia</button>
+      </div>
+      <button class="btn-p" onclick="openModal(null)" style="padding:7px 16px">+ Reservar</button>
+    </div>
+    <div class="legend">
+      <div class="leg-pill" style="background:var(--lounge)">Lounge</div>
+      <div class="leg-pill" style="background:var(--r1)">Reunião 1º Andar</div>
+      <div class="leg-pill" style="background:var(--r2)">Sala de Reuniões (2º Andar)</div>
+    </div>
+    <div class="cal-scroller" id="cal-scroller"></div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="screen-admin" style="display:none;flex-direction:column;height:100vh;overflow:hidden;">
+  <div class="topbar">
+    <div class="tb-brand">
+      <span>⚙ Administração</span>
+    </div>
+    <div class="tb-right">
+      <button class="tb-btn" onclick="showApp()">← Voltar</button>
+    </div>
+  </div>
+  <div class="admin-body">
+    <div class="a-section">
+      <h3>Membros <button class="btn-p" style="padding:5px 14px;font-size:12px" onclick="openAddMembro()">+ Novo</button></h3>
+      <div id="admin-membros"></div>
+    </div>
+    <div class="a-section">
+      <h3>Todos os eventos</h3>
+      <div id="admin-eventos"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RESERVA -->
+<div class="ov" id="ov-modal">
+  <div class="modal">
+    <button class="mcls" onclick="closeModal()">✕</button>
+    <h2 id="modal-title">Nova Reserva</h2>
+    <div id="conflict-warn" class="conflict-box" style="display:none">⚠ Conflito: esta sala já está reservada neste horário.</div>
+    <div class="fg">
+      <label>Título *</label>
+      <input id="f-titulo" placeholder="Ex: Reunião de alinhamento" oninput="checkConflict()">
+    </div>
+    <div class="fg">
+      <label>Sala *</label>
+      <select id="f-sala" onchange="checkConflict()">
+        <option value="lounge">Lounge</option>
+        <option value="reuniao1">Reunião 1º Andar</option>
+        <option value="sala2">Sala de Reuniões (2º Andar)</option>
+      </select>
+    </div>
+    <div class="frow">
+      <div class="fg" style="margin-bottom:0">
+        <label>Data *</label>
+        <input type="date" id="f-data" onchange="checkConflict()">
+      </div>
+      <div></div>
+    </div>
+    <div class="frow" style="margin-top:14px">
+      <div class="fg" style="margin-bottom:0">
+        <label>Início *</label>
+        <input type="time" id="f-inicio" onchange="checkConflict()">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <label>Término *</label>
+        <input type="time" id="f-fim" onchange="checkConflict()">
+      </div>
+    </div>
+    <div class="fg" style="margin-top:14px">
+      <label>Participantes</label>
+      <div class="parts-grid" id="parts-grid"></div>
+    </div>
+    <div class="fg">
+      <label>Descrição</label>
+      <textarea id="f-desc" placeholder="Pauta, notas..."></textarea>
+    </div>
+    <a class="gcal-btn" id="gcal-link" href="#" target="_blank" style="display:none">📅 Abrir no Google Calendar</a>
+    <div class="mbtns">
+      <button class="btn-d" id="btn-excluir" style="display:none" onclick="deleteEvento()">Excluir</button>
+      <button class="btn-s" onclick="closeModal()">Cancelar</button>
+      <button class="btn-p" onclick="saveEvento()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MEU PIN -->
+<div class="ov" id="ov-pin">
+  <div class="modal" style="max-width:340px">
+    <button class="mcls" onclick="closeOv('ov-pin')">✕</button>
+    <h2>Alterar meu PIN</h2>
+    <div class="fg"><label>PIN atual</label><input type="password" id="pin-atual" maxlength="4" placeholder="4 dígitos"></div>
+    <div class="fg"><label>Novo PIN</label><input type="password" id="pin-novo" maxlength="4" placeholder="4 dígitos"></div>
+    <div class="fg"><label>Confirmar novo PIN</label><input type="password" id="pin-conf" maxlength="4" placeholder="4 dígitos"></div>
+    <div class="mbtns">
+      <button class="btn-s" onclick="closeOv('ov-pin')">Cancelar</button>
+      <button class="btn-p" onclick="saveMeuPin()">Alterar PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ADD MEMBRO (admin) -->
+<div class="ov" id="ov-add-mbr">
+  <div class="modal" style="max-width:360px">
+    <button class="mcls" onclick="closeOv('ov-add-mbr')">✕</button>
+    <h2>Novo Membro</h2>
+    <div class="fg"><label>Nome</label><input id="adm-nome" placeholder="Nome completo"></div>
+    <div class="fg"><label>PIN inicial (4 dígitos)</label><input id="adm-pin" placeholder="ex: 1234" maxlength="4"></div>
+    <div class="fg"><label><input type="checkbox" id="adm-is-admin"> &nbsp;Administrador</label></div>
+    <div class="mbtns">
+      <button class="btn-s" onclick="closeOv('ov-add-mbr')">Cancelar</button>
+      <button class="btn-p" onclick="saveMembro()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ===== SUPABASE =====
+const SUPA_URL='https://pxcqyzbgfbwwkazmonzx.supabase.co';
+const SUPA_KEY='sb_publishable_6QT2f_wCkTmpfoO_EEZlpA_BCcC8Fv8';
+let sb=null;
+try{sb=supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){console.warn('Supabase error',e);}
+
+// ===== STATE =====
+let membros=[];
+let eventos=[];
+let currentUser=null;
+let viewDate=new Date();
+let calView='week';
+let editId=null;
+let pinBuffer='';
+
+const SALAS={
+  lounge:{label:'Lounge',color:'#7c3aed'},
+  reuniao1:{label:'Reunião 1º Andar',color:'#1d4ed8'},
+  sala2:{label:'Sala de Reuniões (2º Andar)',color:'#0a1628'}
+};
+const HOURS=Array.from({length:14},(_,i)=>i+7); // 07:00 – 20:00
+
+// ===== BOOT =====
+async function boot(){
+  showScreen('loading');
+  await loadMembros();
+  await loadEventos();
+  // Check session
+  const saved=tryParse(localStorage.getItem('iahub_agenda_session'));
+  if(saved&&membros.find(m=>m.id===saved.id&&m.ativo)){
+    currentUser=membros.find(m=>m.id===saved.id);
+    enterApp();
+  } else {
+    showLoginScreen();
+  }
+  // Auto-refresh events every 60s
+  setInterval(()=>{loadEventos().then(renderCal);},60000);
+}
+function tryParse(s){try{return JSON.parse(s);}catch{return null;}}
+
+async function loadMembros(){
+  if(!sb)return;
+  try{
+    const{data,error}=await sb.from('agenda_membros').select('*').eq('ativo',true).order('nome');
+    if(!error&&data)membros=data;
+  }catch(e){console.warn(e);}
+}
+async function loadMembrosAll(){
+  if(!sb)return;
+  try{
+    const{data,error}=await sb.from('agenda_membros').select('*').order('nome');
+    if(!error&&data)membros=data;
+  }catch(e){console.warn(e);}
+}
+async function loadEventos(){
+  if(!sb)return;
+  try{
+    const{data,error}=await sb.from('agenda_eventos').select('*').order('data').order('hora_inicio');
+    if(!error&&data)eventos=data;
+  }catch(e){console.warn(e);}
+}
+
+// ===== LOGIN =====
+function showLoginScreen(){
+  const sel=document.getElementById('sel-nome');
+  sel.innerHTML='<option value="">Selecione...</option>';
+  membros.filter(m=>m.ativo).forEach(m=>{
+    sel.innerHTML+=`<option value="${m.id}">${esc(m.nome)}</option>`;
+  });
+  showScreen('login');
+}
+function onNomeChange(){pinBuffer='';updatePinDots();}
+
+function pinKey(k){
+  if(!document.getElementById('sel-nome').value){toast('Selecione seu nome primeiro');return;}
+  if(pinBuffer.length>=4)return;
+  pinBuffer+=k;
+  updatePinDots();
+  if(pinBuffer.length===4)setTimeout(checkPin,120);
+}
+function pinDel(){pinBuffer=pinBuffer.slice(0,-1);updatePinDots();clearPinErr();}
+function updatePinDots(){
+  for(let i=0;i<4;i++){
+    const d=document.getElementById('pd'+i);
+    d.textContent=i<pinBuffer.length?'•':'';
+    d.classList.toggle('filled',i<pinBuffer.length);
+    d.classList.remove('err');
+  }
+}
+function clearPinErr(){document.getElementById('login-err').style.display='none';}
+function checkPin(){
+  const id=parseInt(document.getElementById('sel-nome').value);
+  const m=membros.find(x=>x.id===id);
+  if(!m){pinBuffer='';updatePinDots();return;}
+  if(String(m.pin)===pinBuffer){
+    currentUser=m;
+    localStorage.setItem('iahub_agenda_session',JSON.stringify({id:m.id}));
+    enterApp();
+  } else {
+    // Shake dots
+    for(let i=0;i<4;i++)document.getElementById('pd'+i).classList.add('err');
+    document.getElementById('login-err').style.display='block';
+    setTimeout(()=>{pinBuffer='';updatePinDots();clearPinErr();},900);
+  }
+}
+
+// ===== APP =====
+function enterApp(){
+  document.getElementById('tb-username').textContent=currentUser.nome;
+  document.getElementById('btn-admin').style.display=currentUser.admin?'inline-block':'none';
+  renderCal();
+  showScreen('app');
+}
+function doLogout(){
+  localStorage.removeItem('iahub_agenda_session');
+  currentUser=null;pinBuffer='';
+  showLoginScreen();
+}
+
+// ===== CALENDAR =====
+function setView(v){
+  calView=v;
+  ['week','day'].forEach(x=>{
+    const b=document.getElementById('vbtn-'+x);
+    if(b)b.classList.toggle('act',x===v);
+  });
+  renderCal();
+}
+function navDate(d){
+  if(calView==='week')viewDate.setDate(viewDate.getDate()+d*7);
+  else viewDate.setDate(viewDate.getDate()+d);
+  renderCal();
+}
+function goToday(){viewDate=new Date();renderCal();}
+
+function renderCal(){
+  if(calView==='week')renderWeek();
+  else renderDay();
+}
+
+function renderWeek(){
+  const mn=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  // Find Monday of current week
+  const curr=new Date(viewDate);
+  const dow=curr.getDay();
+  curr.setDate(curr.getDate()-(dow===0?6:dow-1)); // Monday
+  const days=[];
+  for(let i=0;i<7;i++){const d=new Date(curr);d.setDate(curr.getDate()+i);days.push(d);}
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('nav-title').textContent=
+    days[0].getDate()+' '+mn[days[0].getMonth()]+' – '+days[6].getDate()+' '+mn[days[6].getMonth()]+' '+days[6].getFullYear();
+
+  const dn=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+  let h='<table class="wk"><thead><tr><th></th>';
+  days.forEach((d,i)=>{
+    const ds=d.toISOString().split('T')[0];
+    const isT=ds===today;
+    h+=`<th class="${isT?'is-today':''}">${dn[i]}<br><span style="font-size:16px;font-weight:700;color:${isT?'var(--navy)':'inherit'}">${d.getDate()}</span></th>`;
+  });
+  h+='</tr></thead><tbody>';
+
+  HOURS.forEach(hh=>{
+    h+=`<tr><td class="time-col">${String(hh).padStart(2,'0')}:00</td>`;
+    days.forEach(d=>{
+      const ds=d.toISOString().split('T')[0];
+      const slotEvts=eventos.filter(e=>e.data===ds&&parseInt(e.hora_inicio.split(':')[0])===hh);
+      h+=`<td onclick="openModal(null,'${ds}','${String(hh).padStart(2,'0')}:00')">`;
+      slotEvts.forEach(e=>{
+        const s=SALAS[e.sala]||{label:e.sala,color:'#555'};
+        h+=`<div class="wk-evt" style="background:${s.color}" onclick="event.stopPropagation();openModal('${e.id}')">
+          <div class="et">${e.hora_inicio}–${e.hora_fim} · ${s.label}</div>
+          <div class="en">${esc(e.titulo)}</div>
+        </div>`;
+      });
+      h+='</td>';
+    });
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  document.getElementById('cal-scroller').innerHTML=h;
+}
+
+function renderDay(){
+  const mn=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const dn=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  const ds=viewDate.toISOString().split('T')[0];
+  document.getElementById('nav-title').textContent=
+    dn[viewDate.getDay()]+', '+viewDate.getDate()+' de '+mn[viewDate.getMonth()]+' de '+viewDate.getFullYear();
+
+  const rooms=Object.entries(SALAS);
+  let h='<table class="dv"><thead><tr><th class="time-col"></th>';
+  rooms.forEach(([k,s])=>{h+=`<th class="dv-th-${k}">${s.label}</th>`;});
+  h+='</tr></thead><tbody>';
+
+  HOURS.forEach(hh=>{
+    h+=`<tr><td class="time-col">${String(hh).padStart(2,'0')}:00</td>`;
+    rooms.forEach(([k])=>{
+      const slotEvts=eventos.filter(e=>e.data===ds&&e.sala===k&&parseInt(e.hora_inicio.split(':')[0])===hh);
+      h+=`<td onclick="openModal(null,'${ds}','${String(hh).padStart(2,'0')}:00','${k}')">`;
+      slotEvts.forEach(e=>{
+        const s=SALAS[e.sala]||{label:e.sala,color:'#555'};
+        h+=`<div class="dv-evt" style="background:${s.color}" onclick="event.stopPropagation();openModal('${e.id}')">
+          <div class="et">${e.hora_inicio}–${e.hora_fim}</div>
+          <div class="en">${esc(e.titulo)}</div>
+        </div>`;
+      });
+      h+='</td>';
+    });
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  document.getElementById('cal-scroller').innerHTML=h;
+}
+
+// ===== MODAL RESERVA =====
+function openModal(id,data,hora,sala){
+  editId=id||null;
+  document.getElementById('conflict-warn').style.display='none';
+  document.getElementById('gcal-link').style.display='none';
+
+  // Participants grid
+  const pg=document.getElementById('parts-grid');
+  pg.innerHTML=membros.filter(m=>m.ativo).map(m=>
+    `<label class="pck" id="pck-${m.id}">
+      <input type="checkbox" value="${m.id}" onchange="this.closest('.pck').classList.toggle('sel',this.checked);updateGcalLink()"> ${esc(m.nome)}
+    </label>`
+  ).join('');
+
+  // Pre-select current user
+  const selfCk=pg.querySelector(`input[value="${currentUser.id}"]`);
+  if(selfCk){selfCk.checked=true;selfCk.closest('.pck').classList.add('sel');}
+
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('f-data').value=data||today;
+  document.getElementById('f-inicio').value=hora||'09:00';
+  document.getElementById('f-fim').value=addHour(hora||'09:00',1);
+  document.getElementById('f-sala').value=sala||'reuniao1';
+  document.getElementById('f-titulo').value='';
+  document.getElementById('f-desc').value='';
+  document.getElementById('btn-excluir').style.display='none';
+  document.getElementById('modal-title').textContent='Nova Reserva';
+
+  if(id){
+    const ev=eventos.find(e=>String(e.id)===String(id));
+    if(ev){
+      document.getElementById('modal-title').textContent='Editar Reserva';
+      document.getElementById('f-titulo').value=ev.titulo||'';
+      document.getElementById('f-sala').value=ev.sala||'reuniao1';
+      document.getElementById('f-data').value=ev.data||today;
+      document.getElementById('f-inicio').value=ev.hora_inicio||'09:00';
+      document.getElementById('f-fim').value=ev.hora_fim||'10:00';
+      document.getElementById('f-desc').value=ev.descricao||'';
+      // Restore participants
+      const parts=ev.participantes||[];
+      pg.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+        const checked=parts.includes(parseInt(cb.value))||parts.includes(String(cb.value));
+        cb.checked=checked;cb.closest('.pck').classList.toggle('sel',checked);
+      });
+      const canDelete=ev.criador_id===currentUser.id||currentUser.admin;
+      document.getElementById('btn-excluir').style.display=canDelete?'inline-block':'none';
+    }
+  }
+  checkConflict();
+  document.getElementById('ov-modal').classList.add('open');
+}
+function closeModal(){document.getElementById('ov-modal').classList.remove('open');editId=null;}
+
+function addHour(t,h){
+  const[hh,mm]=t.split(':').map(Number);
+  const nh=hh+h;
+  return String(Math.min(nh,23)).padStart(2,'0')+':'+String(mm).padStart(2,'0');
+}
+
+function checkConflict(){
+  const sala=document.getElementById('f-sala').value;
+  const data=document.getElementById('f-data').value;
+  const ini=document.getElementById('f-inicio').value;
+  const fim=document.getElementById('f-fim').value;
+  if(!sala||!data||!ini||!fim)return;
+  const conflict=eventos.some(e=>
+    String(e.id)!==String(editId)&&
+    e.sala===sala&&e.data===data&&
+    !(fim<=e.hora_inicio||ini>=e.hora_fim)
+  );
+  document.getElementById('conflict-warn').style.display=conflict?'block':'none';
+  updateGcalLink();
+}
+
+function updateGcalLink(){
+  const titulo=document.getElementById('f-titulo').value.trim();
+  const data=document.getElementById('f-data').value;
+  const ini=document.getElementById('f-inicio').value;
+  const fim=document.getElementById('f-fim').value;
+  const sala=document.getElementById('f-sala').value;
+  if(!titulo||!data||!ini||!fim){document.getElementById('gcal-link').style.display='none';return;}
+  const s=SALAS[sala]||{label:sala};
+  const link=document.getElementById('gcal-link');
+  link.href=gcalUrl(titulo,data,ini,fim,s.label);
+  link.style.display='inline-flex';
+}
+
+function gcalUrl(title,date,start,end,location){
+  const fmt=(d,t)=>d.replace(/-/g,'')+'T'+t.replace(':','')+'00';
+  return'https://calendar.google.com/calendar/render?action=TEMPLATE'+
+    '&text='+encodeURIComponent('[IA Hub] '+title)+
+    '&dates='+fmt(date,start)+'/'+fmt(date,end)+
+    '&location='+encodeURIComponent(location)+
+    '&details='+encodeURIComponent('Reserva via IA Hub Agenda');
+}
+
+async function saveEvento(){
+  const titulo=document.getElementById('f-titulo').value.trim();
+  const sala=document.getElementById('f-sala').value;
+  const data=document.getElementById('f-data').value;
+  const ini=document.getElementById('f-inicio').value;
+  const fim=document.getElementById('f-fim').value;
+  if(!titulo||!sala||!data||!ini||!fim){toast('Preencha os campos obrigatórios');return;}
+  if(ini>=fim){toast('O horário de término deve ser após o início');return;}
+  // Check conflict again
+  const conflict=eventos.some(e=>
+    String(e.id)!==String(editId)&&
+    e.sala===sala&&e.data===data&&
+    !(fim<=e.hora_inicio||ini>=e.hora_fim)
+  );
+  if(conflict&&!confirm('Esta sala tem um conflito de horário. Confirma mesmo assim?'))return;
+
+  const parts=[...document.getElementById('parts-grid').querySelectorAll('input:checked')].map(c=>parseInt(c.value));
+  const payload={titulo,sala,data,hora_inicio:ini,hora_fim:fim,descricao:document.getElementById('f-desc').value.trim(),participantes:parts,criador:currentUser.nome,criador_id:currentUser.id};
+
+  if(!sb){toast('Sem conexão com o servidor');return;}
+  if(editId){
+    const{error}=await sb.from('agenda_eventos').update(payload).eq('id',editId);
+    if(error){toast('Erro ao salvar');return;}
+  } else {
+    const{error}=await sb.from('agenda_eventos').insert(payload);
+    if(error){toast('Erro ao salvar');return;}
+  }
+  await loadEventos();
+  renderCal();
+  closeModal();
+  toast(editId?'Reserva atualizada':'Reserva criada!');
+}
+
+async function deleteEvento(){
+  if(!confirm('Excluir esta reserva?'))return;
+  await sb.from('agenda_eventos').delete().eq('id',editId);
+  await loadEventos();
+  renderCal();
+  closeModal();
+  toast('Reserva excluída');
+}
+
+// ===== MEU PIN =====
+function openMeuPin(){document.getElementById('ov-pin').classList.add('open');}
+async function saveMeuPin(){
+  const atual=document.getElementById('pin-atual').value;
+  const novo=document.getElementById('pin-novo').value;
+  const conf=document.getElementById('pin-conf').value;
+  if(String(currentUser.pin)!==atual){toast('PIN atual incorreto');return;}
+  if(novo.length!==4||!/^\d+$/.test(novo)){toast('Novo PIN deve ter exatamente 4 dígitos');return;}
+  if(novo!==conf){toast('Os PINs não coincidem');return;}
+  const{error}=await sb.from('agenda_membros').update({pin:novo}).eq('id',currentUser.id);
+  if(error){toast('Erro ao salvar');return;}
+  currentUser.pin=novo;
+  ['pin-atual','pin-novo','pin-conf'].forEach(id=>document.getElementById(id).value='');
+  closeOv('ov-pin');
+  toast('PIN alterado com sucesso!');
+}
+
+// ===== ADMIN =====
+function showAdmin(){
+  loadMembrosAll().then(renderAdmin);
+  loadEventos().then(renderAdminEventos);
+  showScreen('admin');
+}
+function showApp(){showScreen('app');renderCal();}
+
+function renderAdmin(){
+  const el=document.getElementById('admin-membros');
+  if(!el)return;
+  el.innerHTML=membros.map(m=>`
+    <div class="mbr-row">
+      <div class="mbr-name">${esc(m.nome)} ${m.admin?'<span class="tag-admin">Admin</span>':''}</div>
+      <input class="mbr-pin-inp" type="text" value="${esc(String(m.pin))}" maxlength="4" placeholder="PIN" id="pin-inp-${m.id}" onchange="savePinAdmin(${m.id})">
+      <button class="tog-ativo ${m.ativo?'on':'off'}" onclick="toggleAtivo(${m.id})">${m.ativo?'Ativo':'Inativo'}</button>
+      ${m.id!==currentUser.id?`<button class="btn-d" style="padding:4px 10px;font-size:12px" onclick="removeMembro(${m.id})">✕</button>`:''}
+    </div>`).join('');
+}
+
+function renderAdminEventos(){
+  const el=document.getElementById('admin-eventos');
+  if(!el)return;
+  const futuros=eventos.filter(e=>e.data>=new Date().toISOString().split('T')[0])
+    .sort((a,b)=>(a.data+a.hora_inicio).localeCompare(b.data+b.hora_inicio));
+  if(!futuros.length){el.innerHTML='<div style="color:var(--muted);font-size:13px">Nenhum evento futuro.</div>';return;}
+  el.innerHTML=futuros.map(e=>{
+    const s=SALAS[e.sala]||{label:e.sala,color:'#555'};
+    return`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f3;font-size:13px">
+      <span style="background:${s.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${s.label}</span>
+      <span style="flex:1"><strong>${esc(e.titulo)}</strong> · ${e.data} ${e.hora_inicio}–${e.hora_fim} · <em>${esc(e.criador)}</em></span>
+      <button class="btn-d" style="padding:4px 10px;font-size:12px" onclick="adminDeleteEvento('${e.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function savePinAdmin(id){
+  const val=document.getElementById('pin-inp-'+id)?.value.trim();
+  if(!val||val.length!==4||!/^\d+$/.test(val)){toast('PIN inválido (4 dígitos)');return;}
+  await sb.from('agenda_membros').update({pin:val}).eq('id',id);
+  const m=membros.find(x=>x.id===id);if(m)m.pin=val;
+  toast('PIN salvo');
+}
+async function toggleAtivo(id){
+  const m=membros.find(x=>x.id===id);if(!m)return;
+  const ativo=!m.ativo;
+  await sb.from('agenda_membros').update({ativo}).eq('id',id);
+  m.ativo=ativo;
+  renderAdmin();
+  toast(ativo?'Membro ativado':'Membro desativado');
+}
+async function removeMembro(id){
+  if(!confirm('Remover este membro?'))return;
+  await sb.from('agenda_membros').delete().eq('id',id);
+  membros=membros.filter(x=>x.id!==id);
+  renderAdmin();
+  toast('Membro removido');
+}
+async function adminDeleteEvento(id){
+  if(!confirm('Excluir esta reserva?'))return;
+  await sb.from('agenda_eventos').delete().eq('id',id);
+  await loadEventos();
+  renderAdminEventos();
+  toast('Reserva excluída');
+}
+function openAddMembro(){
+  document.getElementById('adm-nome').value='';
+  document.getElementById('adm-pin').value='';
+  document.getElementById('adm-is-admin').checked=false;
+  document.getElementById('ov-add-mbr').classList.add('open');
+}
+async function saveMembro(){
+  const nome=document.getElementById('adm-nome').value.trim();
+  const pin=document.getElementById('adm-pin').value.trim();
+  const admin=document.getElementById('adm-is-admin').checked;
+  if(!nome||pin.length!==4||!/^\d+$/.test(pin)){toast('Nome e PIN de 4 dígitos obrigatórios');return;}
+  const{data,error}=await sb.from('agenda_membros').insert({nome,pin,admin,ativo:true}).select().single();
+  if(error){toast('Erro ao adicionar');return;}
+  membros.push(data);
+  renderAdmin();
+  closeOv('ov-add-mbr');
+  toast('Membro adicionado!');
+}
+
+// ===== UTILS =====
+function showScreen(s){
+  ['loading','login','app','admin'].forEach(x=>{
+    const el=document.getElementById('screen-'+x);
+    if(!el)return;
+    el.style.display=x===s?(x==='app'||x==='admin'?'flex':'flex'):'none';
+  });
+}
+function closeOv(id){document.getElementById(id).classList.remove('open');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let _toastT=null;
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  if(_toastT)clearTimeout(_toastT);
+  _toastT=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ===== START =====
+boot();
+</script>
+</body>
+</html>
