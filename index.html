@@ -308,11 +308,12 @@ IA Hub — agenda.iahubconnect.com.br</pre>
         <option value="lounge">Lounge</option>
         <option value="reuniao1">Reunião 1º Andar</option>
         <option value="sala2">Sala de Reuniões (2º Andar)</option>
+        <option value="sala_inteira">🏢 Sala Inteira (todas as salas)</option>
       </select>
     </div>
     <div class="frow" style="margin-bottom:14px">
       <div class="fg" style="margin-bottom:0"><label>Data *</label><input type="date" id="f-data" onchange="checkConflict()"></div>
-      <div class="fg" style="margin-bottom:0"><label>Início *</label><input type="time" id="f-inicio" onchange="checkConflict()"></div>
+      <div class="fg" style="margin-bottom:0"><label>Início *</label><input type="time" id="f-inicio" onchange="onStartChange()"></div>
     </div>
     <div class="frow" style="margin-bottom:14px">
       <div class="fg" style="margin-bottom:0"><label>Término *</label><input type="time" id="f-fim" onchange="checkConflict()"></div>
@@ -397,8 +398,10 @@ let membros=[],eventos=[],currentUser=null,viewDate=new Date(),calView='week',ed
 const SALAS={
   lounge:{label:'Lounge',color:'#7c3aed'},
   reuniao1:{label:'Reunião 1º Andar',color:'#1d4ed8'},
-  sala2:{label:'Sala de Reuniões (2º Andar)',color:'#0a1628'}
+  sala2:{label:'Sala de Reuniões (2º Andar)',color:'#0a1628'},
+  sala_inteira:{label:'Sala Inteira',color:'#b45309'}
 };
+const ALL_SALAS=Object.keys(SALAS).filter(k=>k!=='sala_inteira');
 const HOURS=Array.from({length:14},(_,i)=>i+7);
 
 // ===== BOOT =====
@@ -731,6 +734,25 @@ function getExtParticipants(){
   })).filter(p=>p.nome&&p.email);
 }
 
+function onStartChange(){
+  const ini=document.getElementById('f-inicio').value;
+  const fimEl=document.getElementById('f-fim');
+  if(ini){const cur=fimEl.value;if(!cur||cur<=ini)fimEl.value=addHour(ini,1);}
+  checkConflict();
+}
+
+function hasConflict(sala,data,ini,fim,excludeId){
+  return eventos.some(e=>{
+    if(String(e.id)===String(excludeId))return false;
+    if(e.data!==data)return false;
+    const overlaps=!(fim<=e.hora_inicio||ini>=e.hora_fim);
+    if(!overlaps)return false;
+    if(sala==='sala_inteira')return true; // bloqueia qualquer sala
+    if(e.sala==='sala_inteira')return true; // sala inteira bloqueia qualquer outra
+    return e.sala===sala;
+  });
+}
+
 function checkConflict(){
   const sala=document.getElementById('f-sala').value;
   const data=document.getElementById('f-data').value;
@@ -738,7 +760,7 @@ function checkConflict(){
   const fim=document.getElementById('f-fim').value;
   const btnSave=document.querySelector('#ov-modal .btn-p');
   if(!sala||!data||!ini||!fim){if(btnSave)btnSave.disabled=false;return;}
-  const conflict=eventos.some(e=>String(e.id)!==String(editId)&&e.sala===sala&&e.data===data&&!(fim<=e.hora_inicio||ini>=e.hora_fim));
+  const conflict=hasConflict(sala,data,ini,fim,editId);
   document.getElementById('conflict-warn').style.display=conflict?'block':'none';
   if(btnSave){btnSave.disabled=conflict;btnSave.style.opacity=conflict?'.4':'1';btnSave.style.cursor=conflict?'not-allowed':'pointer';}
 }
@@ -751,8 +773,7 @@ async function saveEvento(){
   const fim=document.getElementById('f-fim').value;
   if(!titulo||!sala||!data||!ini||!fim){toast('Preencha os campos obrigatórios');return;}
   if(ini>=fim){toast('O horário de término deve ser após o início');return;}
-  const conflict=eventos.some(e=>String(e.id)!==String(editId)&&e.sala===sala&&e.data===data&&!(fim<=e.hora_inicio||ini>=e.hora_fim));
-  if(conflict){toast('Esta sala já está reservada neste horário.');return;}
+  if(hasConflict(sala,data,ini,fim,editId)){toast('Esta sala já está reservada neste horário.');return;}
 
   // Montar participantes
   const internos=getIntParticipants();
