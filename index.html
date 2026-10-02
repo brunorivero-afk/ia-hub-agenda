@@ -371,6 +371,17 @@ IA Hub — agenda.iahubconnect.com.br</pre>
   </div>
 </div>
 
+<!-- MODAL PÓS-RESERVA -->
+<div class="ov" id="ov-gcal">
+  <div class="modal" style="max-width:360px;text-align:center">
+    <div style="font-size:44px;margin-bottom:10px">✅</div>
+    <h2 style="margin-bottom:10px">Reserva criada!</h2>
+    <div id="gcal-summary" style="background:#f9fafb;border-radius:10px;padding:12px;font-size:13px;line-height:1.9;text-align:left;margin-bottom:16px;color:var(--navy)"></div>
+    <a id="gcal-link" href="#" target="_blank" rel="noopener" style="display:block;text-decoration:none;background:#1a73e8;color:#fff;border-radius:8px;padding:11px 20px;font-size:14px;font-weight:600;margin-bottom:8px">📅 Adicionar ao Google Agenda</a>
+    <button class="btn-s" onclick="closeOv('ov-gcal')" style="width:100%">Fechar</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -770,10 +781,13 @@ async function saveEvento(){
   closeModal();
   toast(editId?'Reserva atualizada!':'Reserva criada!');
 
-  // Enviar emails para externos com email
+  // Enviar emails + mostrar prompt Google Agenda (só em nova reserva)
   if(!editId){
     const evSaved=eventos.find(e=>String(e.id)===String(savedId));
-    if(evSaved)await sendInviteEmails(evSaved);
+    if(evSaved){
+      await sendInviteEmails(evSaved);
+      showGcalPrompt(evSaved);
+    }
   }
 }
 
@@ -789,7 +803,8 @@ function mergeParticipantes(oldParts,newParts){
 async function deleteEvento(){
   if(!confirm('Excluir esta reserva?'))return;
   await sb.from('agenda_eventos').delete().eq('id',editId);
-  await loadEventos();renderCal();closeModal();toast('Reserva excluída');
+  await loadEventos();renderCal();closeModal();
+  toast('Reserva excluída — lembre-se de remover do seu Google Agenda também.');
 }
 
 // ===== EMAILS =====
@@ -953,6 +968,29 @@ async function saveMembro(){
   const{data,error}=await sb.from('agenda_membros').insert({nome,email:email||null,pin,admin,ativo:true}).select().single();
   if(error){toast('Erro ao adicionar');return;}
   membros.push(data);renderAdmin();closeOv('ov-add-mbr');toast('Membro adicionado!');
+}
+
+// ===== GOOGLE CALENDAR =====
+function gcalUrl(ev){
+  const s=SALAS[ev.sala]||{label:ev.sala};
+  const d=ev.data.replace(/-/g,'');
+  const startDt=d+'T'+ev.hora_inicio.replace(':','')+'00';
+  const endDt=d+'T'+ev.hora_fim.replace(':','')+'00';
+  const p=new URLSearchParams({
+    action:'TEMPLATE',
+    text:ev.titulo,
+    dates:startDt+'/'+endDt,
+    details:ev.descricao||'',
+    location:'IA Hub — '+s.label
+  });
+  return 'https://calendar.google.com/calendar/render?'+p.toString();
+}
+function showGcalPrompt(ev){
+  const s=SALAS[ev.sala]||{label:ev.sala};
+  document.getElementById('gcal-summary').innerHTML=
+    `<strong>📌 ${esc(ev.titulo)}</strong><br>📅 ${fmtData(ev.data)} · ${ev.hora_inicio} – ${ev.hora_fim}<br>📍 ${s.label}`;
+  document.getElementById('gcal-link').href=gcalUrl(ev);
+  document.getElementById('ov-gcal').classList.add('open');
 }
 
 // ===== UTILS =====
