@@ -79,6 +79,20 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
 .dv-th-reuniao1{background:var(--r1);}
 .dv-th-sala2{background:var(--r2);}
 
+/* MONTH VIEW */
+.mv-grid{display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid var(--border);border-top:1px solid var(--border);}
+.mv-hdr{font-size:11px;font-weight:700;color:var(--muted);text-align:center;padding:7px 0;background:#fff;text-transform:uppercase;letter-spacing:.05em;border-right:1px solid var(--border);border-bottom:2px solid var(--border);}
+.mv-cell{min-height:90px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:5px 4px;cursor:pointer;background:#fff;}
+.mv-cell:hover{background:#f0f6ff;}
+.mv-cell.other-month{background:#fafafa;}
+.mv-cell.other-month .mv-day{color:#bbb;}
+.mv-cell.today .mv-day span{background:var(--navy);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;}
+.mv-day{font-size:12px;font-weight:600;color:var(--navy);margin-bottom:3px;line-height:1;}
+.mv-evt{border-radius:3px;padding:1px 5px;margin-bottom:2px;color:#fff;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;cursor:pointer;}
+.mv-evt:hover{opacity:.82;}
+.mv-more{font-size:10px;color:var(--muted);padding:1px 5px;cursor:pointer;font-weight:600;}
+.mv-more:hover{color:var(--navy);}
+
 /* MODAL */
 .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;}
 .ov.open{display:flex;}
@@ -219,6 +233,7 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
       <div class="view-btns">
         <button class="vbtn act" id="vbtn-week" onclick="setView('week')">Semana</button>
         <button class="vbtn" id="vbtn-day" onclick="setView('day')">Dia</button>
+        <button class="vbtn" id="vbtn-month" onclick="setView('month')">Mês</button>
       </div>
       <button class="btn-p btn-sm" onclick="openModal(null)" style="padding:8px 16px">+ Reservar</button>
     </div>
@@ -501,16 +516,50 @@ function doLogout(){localStorage.removeItem('iahub_agenda_session');currentUser=
 // ===== CALENDARIO =====
 function setView(v){
   calView=v;
-  ['week','day'].forEach(x=>document.getElementById('vbtn-'+x)?.classList.toggle('act',x===v));
+  ['week','day','month'].forEach(x=>document.getElementById('vbtn-'+x)?.classList.toggle('act',x===v));
   renderCal();
 }
 function navDate(d){
-  if(calView==='week')viewDate.setDate(viewDate.getDate()+d*7);
+  if(calView==='week') viewDate.setDate(viewDate.getDate()+d*7);
+  else if(calView==='month'){const nd=new Date(viewDate.getFullYear(),viewDate.getMonth()+d,1);viewDate=nd;}
   else viewDate.setDate(viewDate.getDate()+d);
   renderCal();
 }
+function setViewDay(ds){viewDate=new Date(ds+'T12:00:00');setView('day');}
 function goToday(){viewDate=new Date();renderCal();}
-function renderCal(){if(calView==='week')renderWeek();else renderDay();}
+function renderCal(){if(calView==='week')renderWeek();else if(calView==='month')renderMonth();else renderDay();}
+
+function renderMonth(){
+  const MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const y=viewDate.getFullYear(),m=viewDate.getMonth();
+  document.getElementById('nav-title').textContent=MN[m]+' '+y;
+  const today=new Date().toISOString().split('T')[0];
+  const firstDay=new Date(y,m,1);
+  const dow=firstDay.getDay();
+  const start=new Date(firstDay);
+  start.setDate(1-(dow===0?6:dow-1));
+  const dn=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+  let h='<div class="mv-grid">';
+  dn.forEach(d=>{h+=`<div class="mv-hdr">${d}</div>`;});
+  for(let w=0;w<6;w++){
+    for(let d=0;d<7;d++){
+      const cur=new Date(start);cur.setDate(start.getDate()+w*7+d);
+      const ds=cur.toISOString().split('T')[0];
+      const isToday=ds===today,isOther=cur.getMonth()!==m;
+      const dayEvts=eventos.filter(e=>e.data===ds).sort((a,b)=>a.hora_inicio.localeCompare(b.hora_inicio));
+      h+=`<div class="mv-cell${isOther?' other-month':''}${isToday?' today':''}" onclick="openModal(null,'${ds}','09:00')">`;
+      h+=`<div class="mv-day"><span>${cur.getDate()}</span></div>`;
+      dayEvts.slice(0,3).forEach(e=>{
+        const s=SALAS[e.sala]||{label:e.sala,color:'#555'};
+        h+=`<div class="mv-evt" style="background:${s.color}" onclick="event.stopPropagation();openModal('${e.id}')" title="${esc(e.titulo)}">${e.hora_inicio.slice(0,5)} ${esc(e.titulo)}</div>`;
+      });
+      if(dayEvts.length>3)h+=`<div class="mv-more" onclick="event.stopPropagation();setViewDay('${ds}')">+${dayEvts.length-3} mais</div>`;
+      h+='</div>';
+    }
+  }
+  h+='</div>';
+  document.getElementById('cal-scroller').innerHTML=h;
+}
 
 function renderWeek(){
   const mn=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
