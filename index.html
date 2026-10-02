@@ -90,10 +90,9 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
 .fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold);}
 .fg textarea{height:60px;resize:none;}
 .sec-hdr{font-size:12px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.07em;margin:18px 0 10px;padding-bottom:6px;border-bottom:1.5px solid var(--border);}
-.parts-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;}
-.pck{display:flex;align-items:center;gap:6px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;transition:border .1s,background .1s;}
-.pck input[type=checkbox]{accent-color:var(--gold);width:14px;height:14px;cursor:pointer;}
-.pck.sel{border-color:var(--gold);background:#fdf8ed;}
+.int-chip{display:flex;align-items:center;gap:5px;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:16px;padding:3px 10px;font-size:12px;font-weight:500;color:var(--navy);}
+.int-chip button{background:none;border:none;color:#93c5fd;cursor:pointer;font-size:15px;line-height:1;padding:0 0 0 2px;}
+.int-chip button:hover{color:var(--red);}
 .conf-badge{font-size:9px;padding:1px 5px;border-radius:6px;margin-left:4px;font-weight:700;}
 .conf-ok{background:#dcfce7;color:#14532d;}
 .conf-pend{background:#fef9c3;color:#78350f;}
@@ -147,7 +146,7 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
 @media(max-width:600px){
   .frow,.ext-row,.ejs-cfg{grid-template-columns:1fr;}
   .tb-user{display:none;}
-  .parts-grid{grid-template-columns:1fr;}
+  .int-chip{font-size:11px;}
 }
 </style>
 </head>
@@ -305,7 +304,8 @@ IA Hub — agenda.iahubconnect.com.br</pre>
     <div class="fg"><label>Descrição / Pauta</label><textarea id="f-desc" placeholder="Tópicos da reunião..."></textarea></div>
 
     <div class="sec-hdr">Participantes Internos</div>
-    <div class="parts-grid" id="parts-grid"></div>
+    <div id="int-chips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:26px;margin-bottom:8px;"></div>
+    <select id="int-select" onchange="addIntParticipant(this)" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;color:var(--navy);outline:none;background:#fff;margin-bottom:4px;"><option value="">+ Adicionar membro interno...</option></select>
 
     <div class="sec-hdr">Participantes Externos</div>
     <div id="ext-list"></div>
@@ -344,6 +344,7 @@ IA Hub — agenda.iahubconnect.com.br</pre>
     <button class="mcls" onclick="closeOv('ov-add-mbr')">✕</button>
     <h2>Novo Membro</h2>
     <div class="fg"><label>Nome</label><input id="adm-nome" placeholder="Nome completo"></div>
+    <div class="fg"><label>E-mail (para receber convites)</label><input id="adm-email" type="email" placeholder="email@empresa.com"></div>
     <div class="fg"><label>PIN inicial (4 dígitos)</label><input id="adm-pin" placeholder="1234" maxlength="4"></div>
     <div class="fg"><label><input type="checkbox" id="adm-is-admin"> &nbsp;Administrador</label></div>
     <div class="mbtns">
@@ -562,21 +563,45 @@ function renderDay(){
 }
 
 // ===== MODAL RESERVA =====
-let extCount=0;
+let extCount=0,selectedIntIds=[];
+function refreshIntSelect(){
+  const sel=document.getElementById('int-select');if(!sel)return;
+  sel.innerHTML='<option value="">+ Adicionar membro interno...</option>';
+  membros.filter(m=>m.ativo&&!selectedIntIds.includes(m.id)).forEach(m=>{
+    sel.innerHTML+=`<option value="${m.id}">${esc(m.nome)}</option>`;
+  });
+}
+function addIntParticipant(sel){const id=parseInt(sel.value);if(!id)return;addIntChip(id);sel.value='';}
+function addIntChip(id){
+  if(selectedIntIds.includes(id))return;
+  const m=membros.find(x=>x.id===id);if(!m)return;
+  selectedIntIds.push(id);
+  const chip=document.createElement('span');
+  chip.className='int-chip';chip.dataset.id=id;
+  chip.innerHTML=`${esc(m.nome)}<button onclick="removeIntChip(${id})" title="Remover">×</button>`;
+  document.getElementById('int-chips').appendChild(chip);
+  refreshIntSelect();
+}
+function removeIntChip(id){
+  selectedIntIds=selectedIntIds.filter(x=>x!==id);
+  document.querySelector(`.int-chip[data-id="${id}"]`)?.remove();
+  refreshIntSelect();
+}
+function getIntParticipants(){
+  return selectedIntIds.map(id=>{
+    const m=membros.find(x=>x.id===id);
+    return{tipo:'membro',id,nome:m?.nome||'',email:m?.email||'',confirmado:false,token:genToken()};
+  });
+}
 function openModal(id,data,hora,sala){
-  editId=id||null;extCount=0;
+  editId=id||null;extCount=0;selectedIntIds=[];
   document.getElementById('conflict-warn').style.display='none';
   document.getElementById('ext-list').innerHTML='';
+  document.getElementById('int-chips').innerHTML='';
   document.getElementById('email-info').style.display='none';
-
-  // Participantes internos
-  const pg=document.getElementById('parts-grid');
-  pg.innerHTML=membros.filter(m=>m.ativo).map(m=>`
-    <label class="pck" id="pck-${m.id}">
-      <input type="checkbox" value="${m.id}" onchange="this.closest('.pck').classList.toggle('sel',this.checked)"> ${esc(m.nome)}
-    </label>`).join('');
-  const selfCk=pg.querySelector(`input[value="${currentUser.id}"]`);
-  if(selfCk){selfCk.checked=true;selfCk.closest('.pck').classList.add('sel');}
+  refreshIntSelect();
+  // Auto-adicionar o próprio usuário
+  addIntChip(currentUser.id);
 
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('f-data').value=data||today;
@@ -599,14 +624,11 @@ function openModal(id,data,hora,sala){
       document.getElementById('f-fim').value=ev.hora_fim||'10:00';
       document.getElementById('f-desc').value=ev.descricao||'';
       // Restaurar participantes
+      selectedIntIds=[];document.getElementById('int-chips').innerHTML='';
       const parts=ev.participantes||[];
       parts.forEach(p=>{
-        if(p.tipo==='membro'){
-          const cb=pg.querySelector(`input[value="${p.id}"]`);
-          if(cb){cb.checked=true;cb.closest('.pck').classList.add('sel');}
-        } else if(p.tipo==='externo'){
-          addExtRow(p);
-        }
+        if(p.tipo==='membro') addIntChip(p.id);
+        else if(p.tipo==='externo') addExtRow(p);
       });
       const canDelete=ev.criador_id===currentUser.id||currentUser.admin;
       document.getElementById('btn-excluir').style.display=canDelete?'inline-block':'none';
@@ -669,10 +691,7 @@ async function saveEvento(){
   if(conflict&&!confirm('Há um conflito de horário nesta sala. Confirmar mesmo assim?'))return;
 
   // Montar participantes
-  const internos=[...document.getElementById('parts-grid').querySelectorAll('input:checked')].map(c=>{
-    const m=membros.find(x=>x.id===parseInt(c.value));
-    return{tipo:'membro',id:parseInt(c.value),nome:m?.nome||'',confirmado:false,token:genToken()};
-  });
+  const internos=getIntParticipants();
   const externos=getExtParticipants();
   const participantes=[...internos,...externos];
 
@@ -745,7 +764,7 @@ async function sendInviteEmails(ev){
   const cfg=getEjsConfig();
   if(!cfg.pubkey||!cfg.service||!cfg.template){return;}
   emailjs.init(cfg.pubkey);
-  const externos=(ev.participantes||[]).filter(p=>p.tipo==='externo'&&p.email);
+  const externos=(ev.participantes||[]).filter(p=>p.email);
   if(!externos.length)return;
   const s=SALAS[ev.sala]||{label:ev.sala};
   const baseUrl=location.origin+location.pathname;
@@ -813,12 +832,19 @@ function showApp(){showScreen('app');renderCal();}
 function renderAdmin(){
   const el=document.getElementById('admin-membros');if(!el)return;
   el.innerHTML=membros.map(m=>`
-    <div class="mbr-row">
-      <div class="mbr-name">${esc(m.nome)} ${m.admin?'<span class="tag-admin">Admin</span>':''}</div>
+    <div class="mbr-row" style="flex-wrap:wrap;gap:6px;">
+      <div class="mbr-name" style="flex-basis:100%;margin-bottom:2px;">${esc(m.nome)} ${m.admin?'<span class="tag-admin">Admin</span>':''}</div>
+      <input type="email" placeholder="e-mail para convites" value="${esc(m.email||'')}" style="flex:1;min-width:160px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;" id="email-inp-${m.id}" onchange="saveEmailAdmin(${m.id})">
       <input class="mbr-pin-inp" type="text" value="${esc(String(m.pin))}" maxlength="4" id="pin-inp-${m.id}" onchange="savePinAdmin(${m.id})">
       <button class="tog-ativo ${m.ativo?'on':'off'}" onclick="toggleAtivo(${m.id})">${m.ativo?'Ativo':'Inativo'}</button>
       ${m.id!==currentUser.id?`<button class="btn-d btn-sm" onclick="removeMembro(${m.id})">✕</button>`:''}
     </div>`).join('');
+}
+async function saveEmailAdmin(id){
+  const val=document.getElementById('email-inp-'+id)?.value.trim()||'';
+  await sb.from('agenda_membros').update({email:val}).eq('id',id);
+  const m=membros.find(x=>x.id===id);if(m)m.email=val;
+  toast('E-mail salvo');
 }
 function renderAdminEventos(){
   const el=document.getElementById('admin-eventos');if(!el)return;
@@ -861,16 +887,17 @@ async function adminDeleteEvento(id){
   await loadEventos();renderAdminEventos();toast('Reserva excluída');
 }
 function openAddMembro(){
-  ['adm-nome','adm-pin'].forEach(id=>document.getElementById(id).value='');
+  ['adm-nome','adm-email','adm-pin'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('adm-is-admin').checked=false;
   document.getElementById('ov-add-mbr').classList.add('open');
 }
 async function saveMembro(){
   const nome=document.getElementById('adm-nome').value.trim();
+  const email=document.getElementById('adm-email').value.trim();
   const pin=document.getElementById('adm-pin').value.trim();
   const admin=document.getElementById('adm-is-admin').checked;
   if(!nome||pin.length!==4||!/^\d+$/.test(pin)){toast('Nome e PIN de 4 dígitos obrigatórios');return;}
-  const{data,error}=await sb.from('agenda_membros').insert({nome,pin,admin,ativo:true}).select().single();
+  const{data,error}=await sb.from('agenda_membros').insert({nome,email:email||null,pin,admin,ativo:true}).select().single();
   if(error){toast('Erro ao adicionar');return;}
   membros.push(data);renderAdmin();closeOv('ov-add-mbr');toast('Membro adicionado!');
 }
