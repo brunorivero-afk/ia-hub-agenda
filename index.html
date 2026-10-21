@@ -32,7 +32,10 @@ html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;font-size:1
 .kk:hover{background:#e8e4dc;}
 .kk:active{background:var(--gold);color:#fff;}
 .kk.del{background:#fee2e2;color:var(--red);}
-#login-err{display:none;text-align:center;color:var(--red);font-size:12px;margin-top:8px;}
+#login-err{display:none;text-align:center;color:var(--red);font-size:12px;margin-top:12px;line-height:1.5;}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px 16px;background:#fff;border:1.5px solid #dadce0;border-radius:10px;font-size:14px;font-weight:500;color:#3c4043;cursor:pointer;transition:background .15s,box-shadow .15s;}
+.btn-google:hover{background:#f8f9fa;box-shadow:0 1px 4px rgba(0,0,0,.12);}
+.login-hint{font-size:12px;color:#94a3b8;text-align:center;margin-top:14px;line-height:1.5;}
 
 /* APP */
 #screen-app{display:none;height:100vh;flex-direction:column;overflow:hidden;}
@@ -190,25 +193,14 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
     <div class="login-sub">Reserva de Salas</div>
   </div>
   <div class="login-card">
-    <h2>Identificação</h2>
-    <div class="lf">
-      <label>Seu nome</label>
-      <select id="sel-nome" onchange="onNomeChange()"><option value="">Selecione...</option></select>
-    </div>
-    <div class="lf">
-      <label>PIN (4 dígitos)</label>
-      <div class="pin-dots" id="pin-dots">
-        <div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div>
-        <div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div>
-      </div>
-      <div class="keypad">
-        <button class="kk" onclick="pinKey('1')">1</button><button class="kk" onclick="pinKey('2')">2</button><button class="kk" onclick="pinKey('3')">3</button>
-        <button class="kk" onclick="pinKey('4')">4</button><button class="kk" onclick="pinKey('5')">5</button><button class="kk" onclick="pinKey('6')">6</button>
-        <button class="kk" onclick="pinKey('7')">7</button><button class="kk" onclick="pinKey('8')">8</button><button class="kk" onclick="pinKey('9')">9</button>
-        <div></div><button class="kk" onclick="pinKey('0')">0</button><button class="kk del" onclick="pinDel()">⌫</button>
-      </div>
-    </div>
-    <div id="login-err">PIN incorreto. Tente novamente.</div>
+    <h2>Acesso</h2>
+    <p style="font-size:13px;color:#6b7280;text-align:center;margin-bottom:20px">Use sua conta Google para acessar as reservas de sala</p>
+    <button class="btn-google" onclick="signInWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+      Entrar com Google
+    </button>
+    <div id="login-err"></div>
+    <p class="login-hint">Seu email Google precisa estar cadastrado pelo administrador.</p>
   </div>
 </div>
 
@@ -218,7 +210,6 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
     <div class="tb-brand"><span>IA Hub — Reservas</span></div>
     <div class="tb-right">
       <span class="tb-user" id="tb-username"></span>
-      <button class="tb-btn" onclick="openMeuPin()" title="Alterar PIN">🔑</button>
       <button class="tb-btn gold" id="btn-admin" style="display:none" onclick="showAdmin()">⚙ Admin</button>
       <button class="tb-btn" onclick="doLogout()">Sair</button>
     </div>
@@ -341,19 +332,6 @@ IA Hub — agenda.iahubconnect.com.br</pre>
 </div>
 
 <!-- MODAL MEU PIN -->
-<div class="ov" id="ov-pin">
-  <div class="modal" style="max-width:340px">
-    <button class="mcls" onclick="closeOv('ov-pin')">✕</button>
-    <h2>Alterar meu PIN</h2>
-    <div class="fg"><label>PIN atual</label><input type="password" id="pin-atual" maxlength="4"></div>
-    <div class="fg"><label>Novo PIN (4 dígitos)</label><input type="password" id="pin-novo" maxlength="4"></div>
-    <div class="fg"><label>Confirmar novo PIN</label><input type="password" id="pin-conf" maxlength="4"></div>
-    <div class="mbtns">
-      <button class="btn-s" onclick="closeOv('ov-pin')">Cancelar</button>
-      <button class="btn-p" onclick="saveMeuPin()">Alterar PIN</button>
-    </div>
-  </div>
-</div>
 
 <!-- MODAL ADD MEMBRO -->
 <div class="ov" id="ov-add-mbr">
@@ -392,7 +370,7 @@ const SUPA_KEY='sb_publishable_6QT2f_wCkTmpfoO_EEZlpA_BCcC8Fv8';
 let sb=null;
 try{sb=supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){console.warn(e);}
 
-let membros=[],eventos=[],currentUser=null,viewDate=new Date(),calView='week',editId=null,pinBuffer='';
+let membros=[],eventos=[],currentUser=null,viewDate=new Date(),calView='week',editId=null,googleToken=null;
 
 const SALAS={
   lounge:{label:'Lounge',color:'#7c3aed'},
@@ -406,23 +384,46 @@ const HOURS=Array.from({length:14},(_,i)=>i+7);
 // ===== BOOT =====
 async function boot(){
   showScreen('loading');
-  // Checar link de confirmação
   const params=new URLSearchParams(location.search);
   const confirmToken=params.get('confirm');
   if(confirmToken){await handleConfirmation(confirmToken);return;}
 
-  await loadMembros();
-  await loadEventos();
-  const saved=tryParse(localStorage.getItem('iahub_agenda_session'));
-  if(saved&&membros.find(m=>m.id===saved.id&&m.ativo)){
-    currentUser=membros.find(m=>m.id===saved.id);
-    enterApp();
+  if(!sb){showLoginScreen();return;}
+
+  sb.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='SIGNED_IN'&&session){
+      await loadMembros();await loadEventos();
+      await handleGoogleSession(session);
+    } else if(event==='SIGNED_OUT'){
+      currentUser=null;googleToken=null;
+      await loadMembros();showLoginScreen();
+    }
+  });
+
+  const{data:{session}}=await sb.auth.getSession();
+  if(session){
+    await loadMembros();await loadEventos();
+    await handleGoogleSession(session);
   } else {
-    showLoginScreen();
+    await loadMembros();showLoginScreen();
   }
   setInterval(()=>{loadEventos().then(renderCal);},60000);
 }
 function tryParse(s){try{return JSON.parse(s);}catch{return null;}}
+
+async function handleGoogleSession(session){
+  const email=session.user?.email;
+  if(!email){showLoginError('Erro ao obter seu email Google.');showLoginScreen();return;}
+  const m=membros.find(x=>x.email&&x.email.toLowerCase()===email.toLowerCase());
+  if(!m){
+    await sb.auth.signOut();
+    showLoginError(`Email ${email} não cadastrado na Agenda. Peça ao administrador.`);
+    showLoginScreen();return;
+  }
+  currentUser=m;
+  googleToken=session.provider_token||null;
+  enterApp();
+}
 
 async function loadMembros(){
   if(!sb)return;
@@ -483,39 +484,19 @@ function setConfScreen(icon,title,msg,ev){
 
 // ===== LOGIN =====
 function showLoginScreen(){
-  const sel=document.getElementById('sel-nome');
-  sel.innerHTML='<option value="">Selecione...</option>';
-  membros.filter(m=>m.ativo).forEach(m=>{sel.innerHTML+=`<option value="${m.id}">${esc(m.nome)}</option>`;});
+  document.getElementById('login-err').style.display='none';
   showScreen('login');
 }
-function onNomeChange(){pinBuffer='';updatePinDots();}
-function pinKey(k){
-  if(!document.getElementById('sel-nome').value){toast('Selecione seu nome primeiro');return;}
-  if(pinBuffer.length>=4)return;
-  pinBuffer+=k;updatePinDots();
-  if(pinBuffer.length===4)setTimeout(checkPin,120);
+function showLoginError(msg){
+  const el=document.getElementById('login-err');
+  el.textContent=msg;el.style.display='block';
 }
-function pinDel(){pinBuffer=pinBuffer.slice(0,-1);updatePinDots();clearPinErr();}
-function updatePinDots(){
-  for(let i=0;i<4;i++){
-    const d=document.getElementById('pd'+i);
-    d.textContent=i<pinBuffer.length?'•':'';
-    d.classList.toggle('filled',i<pinBuffer.length);
-    d.classList.remove('err');
-  }
-}
-function clearPinErr(){document.getElementById('login-err').style.display='none';}
-function checkPin(){
-  const id=parseInt(document.getElementById('sel-nome').value);
-  const m=membros.find(x=>x.id===id);
-  if(!m)return;
-  if(String(m.pin)===pinBuffer){
-    currentUser=m;localStorage.setItem('iahub_agenda_session',JSON.stringify({id:m.id}));enterApp();
-  } else {
-    for(let i=0;i<4;i++)document.getElementById('pd'+i).classList.add('err');
-    document.getElementById('login-err').style.display='block';
-    setTimeout(()=>{pinBuffer='';updatePinDots();clearPinErr();},900);
-  }
+function signInWithGoogle(){
+  if(!sb){toast('Sem conexão');return;}
+  sb.auth.signInWithOAuth({provider:'google',options:{
+    scopes:'https://www.googleapis.com/auth/calendar.events',
+    redirectTo:window.location.href.split('?')[0].split('#')[0]
+  }});
 }
 
 // ===== APP =====
@@ -524,7 +505,7 @@ function enterApp(){
   document.getElementById('btn-admin').style.display=currentUser.admin?'inline-block':'none';
   renderCal();showScreen('app');
 }
-function doLogout(){localStorage.removeItem('iahub_agenda_session');currentUser=null;pinBuffer='';showLoginScreen();}
+function doLogout(){sb.auth.signOut();currentUser=null;googleToken=null;}
 
 // ===== CALENDARIO =====
 function setView(v){
@@ -801,12 +782,16 @@ async function saveEvento(){
   closeModal();
   toast(editId?'Reserva atualizada!':'Reserva criada!');
 
-  // Enviar emails + mostrar prompt Google Agenda (só em nova reserva)
   if(!editId){
     const evSaved=eventos.find(e=>String(e.id)===String(savedId));
     if(evSaved){
+      // Criar no Google Calendar do criador (convida participantes automaticamente)
+      const gcalId=await createGCalEvent(evSaved);
+      if(gcalId){
+        await sb.from('agenda_eventos').update({google_event_id:gcalId}).eq('id',savedId);
+      }
       await sendInviteEmails(evSaved);
-      showGcalPrompt(evSaved);
+      showGcalPrompt(evSaved,!!gcalId);
     }
   }
 }
@@ -822,9 +807,11 @@ function mergeParticipantes(oldParts,newParts){
 
 async function deleteEvento(){
   if(!confirm('Excluir esta reserva?'))return;
+  const ev=eventos.find(e=>String(e.id)===String(editId));
+  if(ev?.google_event_id)await deleteGCalEvent(ev.google_event_id);
   await sb.from('agenda_eventos').delete().eq('id',editId);
   await loadEventos();renderCal();closeModal();
-  toast('Reserva excluída — lembre-se de remover do seu Google Agenda também.');
+  toast('Reserva excluída'+(ev?.google_event_id?' e removida do Google Agenda.':'.'));
 }
 
 // ===== EMAILS =====
@@ -892,22 +879,40 @@ async function testEmail(){
   }catch(e){toast('❌ Erro: '+e.text);console.error(e);}
 }
 
-// ===== MEU PIN =====
-function openMeuPin(){
-  ['pin-atual','pin-novo','pin-conf'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('ov-pin').classList.add('open');
+// ===== GOOGLE CALENDAR API =====
+async function createGCalEvent(ev){
+  if(!googleToken)return null;
+  try{
+    const s=SALAS[ev.sala]||{label:ev.sala};
+    const attendees=(ev.participantes||[]).filter(p=>p.email).map(p=>({email:p.email}));
+    const body={
+      summary:ev.titulo,
+      location:s.label,
+      description:ev.descricao||'',
+      start:{dateTime:`${ev.data}T${ev.hora_inicio}:00`,timeZone:'America/Sao_Paulo'},
+      end:{dateTime:`${ev.data}T${ev.hora_fim}:00`,timeZone:'America/Sao_Paulo'},
+      attendees,
+      reminders:{useDefault:true}
+    };
+    const res=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events',{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${googleToken}`,'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const data=await res.json();
+    if(data.error){console.warn('GCal error',data.error);return null;}
+    return data.id||null;
+  }catch(e){console.warn('GCal create failed',e);return null;}
 }
-async function saveMeuPin(){
-  const atual=document.getElementById('pin-atual').value;
-  const novo=document.getElementById('pin-novo').value;
-  const conf=document.getElementById('pin-conf').value;
-  if(String(currentUser.pin)!==atual){toast('PIN atual incorreto');return;}
-  if(novo.length!==4||!/^\d+$/.test(novo)){toast('Novo PIN deve ter 4 dígitos');return;}
-  if(novo!==conf){toast('Os PINs não coincidem');return;}
-  const{error}=await sb.from('agenda_membros').update({pin:novo}).eq('id',currentUser.id);
-  if(error){toast('Erro ao salvar');return;}
-  currentUser.pin=novo;
-  closeOv('ov-pin');toast('PIN alterado com sucesso!');
+
+async function deleteGCalEvent(gcalId){
+  if(!googleToken||!gcalId)return;
+  try{
+    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${gcalId}`,{
+      method:'DELETE',
+      headers:{'Authorization':`Bearer ${googleToken}`}
+    });
+  }catch(e){console.warn('GCal delete failed',e);}
 }
 
 // ===== ADMIN =====
@@ -1005,11 +1010,14 @@ function gcalUrl(ev){
   });
   return 'https://calendar.google.com/calendar/render?'+p.toString();
 }
-function showGcalPrompt(ev){
+function showGcalPrompt(ev,syncedToGoogle){
   const s=SALAS[ev.sala]||{label:ev.sala};
   document.getElementById('gcal-summary').innerHTML=
-    `<strong>📌 ${esc(ev.titulo)}</strong><br>📅 ${fmtData(ev.data)} · ${ev.hora_inicio} – ${ev.hora_fim}<br>📍 ${s.label}`;
-  document.getElementById('gcal-link').href=gcalUrl(ev);
+    `<strong>📌 ${esc(ev.titulo)}</strong><br>📅 ${fmtData(ev.data)} · ${ev.hora_inicio} – ${ev.hora_fim}<br>📍 ${s.label}`+
+    (syncedToGoogle?'<br><span style="color:#059669;font-size:12px">✅ Adicionado ao Google Agenda automaticamente</span>':'');
+  const lnkEl=document.getElementById('gcal-link');
+  lnkEl.href=gcalUrl(ev);
+  lnkEl.style.display=syncedToGoogle?'none':'inline-flex';
   document.getElementById('ov-gcal').classList.add('open');
 }
 
