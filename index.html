@@ -303,21 +303,20 @@ IA Hub — agenda.iahubconnect.com.br</pre>
     <h2 id="modal-title">Nova Reserva</h2>
     <div id="conflict-warn" class="conflict-box" style="display:none">⚠ Conflito: esta sala já está reservada neste horário.</div>
     <div class="fg"><label>Título *</label><input id="f-titulo" placeholder="Ex: Reunião de alinhamento" oninput="checkConflict()"></div>
-    <div class="fg"><label>Sala *</label>
-      <select id="f-sala" onchange="checkConflict()">
-        <option value="lounge">Lounge</option>
-        <option value="reuniao1">Reunião 1º Andar</option>
-        <option value="sala2">Sala de Reuniões (2º Andar)</option>
-        <option value="sala_inteira">🏢 Sala Inteira (todas as salas)</option>
-      </select>
-    </div>
     <div class="frow" style="margin-bottom:14px">
+      <div class="fg" style="margin-bottom:0"><label>Sala *</label>
+        <select id="f-sala" onchange="checkConflict()">
+          <option value="lounge">Lounge</option>
+          <option value="reuniao1">Reunião 1º Andar</option>
+          <option value="sala2">Sala de Reuniões (2º Andar)</option>
+          <option value="sala_inteira">🏢 Sala Inteira (todas as salas)</option>
+        </select>
+      </div>
       <div class="fg" style="margin-bottom:0"><label>Data *</label><input type="date" id="f-data" onchange="checkConflict()"></div>
-      <div class="fg" style="margin-bottom:0"><label>Início *</label><input type="time" id="f-inicio" onchange="onStartChange()"></div>
     </div>
     <div class="frow" style="margin-bottom:14px">
+      <div class="fg" style="margin-bottom:0"><label>Início *</label><input type="time" id="f-inicio" onchange="onStartChange()"></div>
       <div class="fg" style="margin-bottom:0"><label>Término *</label><input type="time" id="f-fim" onchange="checkConflict()"></div>
-      <div></div>
     </div>
     <div class="fg"><label>Descrição / Pauta</label><textarea id="f-desc" placeholder="Tópicos da reunião..."></textarea></div>
 
