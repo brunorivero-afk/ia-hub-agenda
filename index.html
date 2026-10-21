@@ -491,12 +491,15 @@ function showLoginError(msg){
   const el=document.getElementById('login-err');
   el.textContent=msg;el.style.display='block';
 }
-function signInWithGoogle(){
+async function signInWithGoogle(){
   if(!sb){toast('Sem conexão');return;}
-  sb.auth.signInWithOAuth({provider:'google',options:{
+  showLoginError('');
+  const origin=window.location.origin;
+  const {data,error}=await sb.auth.signInWithOAuth({provider:'google',options:{
     scopes:'https://www.googleapis.com/auth/calendar.events',
-    redirectTo:window.location.href.split('?')[0].split('#')[0]
+    redirectTo:origin+'/'
   }});
+  if(error)showLoginError('Erro ao iniciar login: '+error.message);
 }
 
 // ===== APP =====
