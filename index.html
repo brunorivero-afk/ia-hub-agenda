@@ -431,6 +431,15 @@ async function handleGoogleSession(session){
     try{localStorage.setItem('iahub_gtoken_'+m.id,session.provider_token);}catch(e){}
   } else {
     try{googleToken=localStorage.getItem('iahub_gtoken_'+m.id)||null;}catch(e){googleToken=null;}
+    if(!googleToken){
+      try{
+        const{data:rd}=await sb.auth.refreshSession();
+        if(rd?.session?.provider_token){
+          googleToken=rd.session.provider_token;
+          try{localStorage.setItem('iahub_gtoken_'+m.id,googleToken);}catch(e){}
+        }
+      }catch(e){console.warn('session refresh failed',e);}
+    }
   }
   enterApp();
 }
@@ -893,8 +902,19 @@ async function testEmail(){
 }
 
 // ===== GOOGLE CALENDAR API =====
+async function refreshGoogleToken(){
+  try{
+    const{data:rd}=await sb.auth.refreshSession();
+    if(rd?.session?.provider_token){
+      googleToken=rd.session.provider_token;
+      if(currentUser)try{localStorage.setItem('iahub_gtoken_'+currentUser.id,googleToken);}catch(e){}
+      return true;
+    }
+  }catch(e){console.warn('token refresh failed',e);}
+  return false;
+}
 async function createGCalEvent(ev){
-  if(!googleToken)return null;
+  if(!googleToken){await refreshGoogleToken();if(!googleToken)return null;}
   try{
     const s=SALAS[ev.sala]||{label:ev.sala};
     const attendees=(ev.participantes||[]).filter(p=>p.email).map(p=>({email:p.email}));
@@ -913,7 +933,13 @@ async function createGCalEvent(ev){
       body:JSON.stringify(body)
     });
     const data=await res.json();
-    if(data.error){console.warn('GCal error',data.error);return null;}
+    if(data.error){
+      if(data.error.code===401){
+        const ok=await refreshGoogleToken();
+        if(ok)return createGCalEvent(ev);
+      }
+      console.warn('GCal error',data.error);return null;
+    }
     return data.id||null;
   }catch(e){console.warn('GCal create failed',e);return null;}
 }
