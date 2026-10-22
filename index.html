@@ -6,6 +6,10 @@
 <title>Agenda IA Hub</title>
 <meta name="theme-color" content="#0a1628">
 <link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IA Hub">
+<link rel="apple-touch-icon" href="icon.svg">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;font-size:14px;background:#f5f0e8;color:#1a1a1a;}
@@ -1041,6 +1045,7 @@ let _tt=null;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');if(_tt)clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),2800);}
 
 boot();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js');
 </script>
 </body>
 </html>
