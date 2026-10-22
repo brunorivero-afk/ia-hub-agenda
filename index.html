@@ -399,6 +399,7 @@ async function boot(){
       await loadMembros();await loadEventos();
       await handleGoogleSession(session);
     } else if(event==='SIGNED_OUT'){
+      if(currentUser)try{localStorage.removeItem('iahub_gtoken_'+currentUser.id);}catch(e){}
       currentUser=null;googleToken=null;
       await loadMembros();showLoginScreen();
     }
@@ -425,7 +426,12 @@ async function handleGoogleSession(session){
     showLoginScreen();return;
   }
   currentUser=m;
-  googleToken=session.provider_token||null;
+  if(session.provider_token){
+    googleToken=session.provider_token;
+    try{localStorage.setItem('iahub_gtoken_'+m.id,session.provider_token);}catch(e){}
+  } else {
+    try{googleToken=localStorage.getItem('iahub_gtoken_'+m.id)||null;}catch(e){googleToken=null;}
+  }
   enterApp();
 }
 
