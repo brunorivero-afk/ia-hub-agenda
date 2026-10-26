@@ -955,10 +955,22 @@ async function createGCalEvent(ev){
         const ok=await refreshGoogleToken();
         if(ok)return createGCalEvent(ev);
       }
-      console.warn('GCal error',data.error);return null;
+      console.warn('GCal error',data.error);
+      toast(`⚠ Google Agenda: erro ${data.error.code||'?'} — toque em Reconectar`);
+      googleToken=null;
+      if(currentUser)try{localStorage.removeItem('iahub_gtoken_'+currentUser.id);}catch(e){}
+      _setGcalBtn(true);
+      return null;
     }
     return data.id||null;
-  }catch(e){console.warn('GCal create failed',e);return null;}
+  }catch(e){
+    console.warn('GCal create failed',e);
+    toast('⚠ Google Agenda: falha de rede — toque em Reconectar');
+    googleToken=null;
+    if(currentUser)try{localStorage.removeItem('iahub_gtoken_'+currentUser.id);}catch(e){}
+    _setGcalBtn(true);
+    return null;
+  }
 }
 
 async function deleteGCalEvent(gcalId){
