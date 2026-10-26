@@ -433,6 +433,7 @@ async function handleGoogleSession(session){
   if(session.provider_token){
     googleToken=session.provider_token;
     _saveGToken(m.id,googleToken);
+    setTimeout(()=>toast('✅ Google Agenda conectado!'),800);
   } else {
     googleToken=_loadGToken(m.id);
     if(!googleToken){
@@ -441,6 +442,7 @@ async function handleGoogleSession(session){
         if(rd?.session?.provider_token){
           googleToken=rd.session.provider_token;
           _saveGToken(m.id,googleToken);
+          setTimeout(()=>toast('✅ Google Agenda conectado!'),800);
         }
       }catch(e){console.warn('session refresh failed',e);}
     }
@@ -521,7 +523,7 @@ async function signInWithGoogle(){
   const {data,error}=await sb.auth.signInWithOAuth({provider:'google',options:{
     scopes:'https://www.googleapis.com/auth/calendar.events',
     redirectTo:origin+'/',
-    queryParams:{access_type:'offline',prompt:'consent'}
+    queryParams:{prompt:'consent'}
   }});
   if(error)showLoginError('Erro ao iniciar login: '+error.message);
 }
