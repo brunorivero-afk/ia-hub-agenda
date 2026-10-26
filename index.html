@@ -400,7 +400,7 @@ async function boot(){
       await loadMembros();await loadEventos();
       await handleGoogleSession(session);
     } else if(event==='SIGNED_OUT'){
-      if(currentUser)try{localStorage.removeItem('iahub_gtoken_'+currentUser.id);}catch(e){}
+      if(currentUser)_clearGToken(currentUser.id);
       currentUser=null;googleToken=null;
       await loadMembros();showLoginScreen();
     }
@@ -432,15 +432,15 @@ async function handleGoogleSession(session){
   currentUser=m;
   if(session.provider_token){
     googleToken=session.provider_token;
-    try{localStorage.setItem('iahub_gtoken_'+m.id,session.provider_token);}catch(e){}
+    _saveGToken(m.id,googleToken);
   } else {
-    try{googleToken=localStorage.getItem('iahub_gtoken_'+m.id)||null;}catch(e){googleToken=null;}
+    googleToken=_loadGToken(m.id);
     if(!googleToken){
       try{
         const{data:rd}=await sb.auth.refreshSession();
         if(rd?.session?.provider_token){
           googleToken=rd.session.provider_token;
-          try{localStorage.setItem('iahub_gtoken_'+m.id,googleToken);}catch(e){}
+          _saveGToken(m.id,googleToken);
         }
       }catch(e){console.warn('session refresh failed',e);}
     }
@@ -912,19 +912,21 @@ function _setGcalBtn(show){
   const el=document.getElementById('btn-gcal-reconnect');
   if(el)el.style.display=show?'inline-block':'none';
 }
+function _saveGToken(uid,tok){try{localStorage.setItem('iahub_gtoken_'+uid,JSON.stringify({token:tok,exp:Date.now()+3500000}));}catch(e){}}
+function _loadGToken(uid){try{const s=tryParse(localStorage.getItem('iahub_gtoken_'+uid));if(s&&s.exp>Date.now())return s.token;localStorage.removeItem('iahub_gtoken_'+uid);}catch(e){}return null;}
+function _clearGToken(uid){try{localStorage.removeItem('iahub_gtoken_'+uid);}catch(e){}}
 async function refreshGoogleToken(){
   try{
     const{data:rd}=await sb.auth.refreshSession();
     if(rd?.session?.provider_token){
       googleToken=rd.session.provider_token;
-      if(currentUser)try{localStorage.setItem('iahub_gtoken_'+currentUser.id,googleToken);}catch(e){}
+      if(currentUser)_saveGToken(currentUser.id,googleToken);
       _setGcalBtn(false);
       return true;
     }
   }catch(e){console.warn('token refresh failed',e);}
-  // Token inválido ou sem refresh token — limpa cache
   googleToken=null;
-  if(currentUser)try{localStorage.removeItem('iahub_gtoken_'+currentUser.id);}catch(e){}
+  if(currentUser)_clearGToken(currentUser.id);
   _setGcalBtn(true);
   return false;
 }
@@ -956,7 +958,7 @@ async function createGCalEvent(ev){
       console.warn('GCal error',data.error);
       toast(`⚠ Google Agenda: erro ${data.error.code||'?'} — toque em Reconectar`);
       googleToken=null;
-      if(currentUser)try{localStorage.removeItem('iahub_gtoken_'+currentUser.id);}catch(e){}
+      if(currentUser)_clearGToken(currentUser.id);
       _setGcalBtn(true);
       return null;
     }
@@ -964,7 +966,7 @@ async function createGCalEvent(ev){
       console.warn('GCal: resposta sem id',data);
       toast('⚠ Google Agenda: resposta inesperada — toque em Reconectar');
       googleToken=null;
-      if(currentUser)try{localStorage.removeItem('iahub_gtoken_'+currentUser.id);}catch(e){}
+      if(currentUser)_clearGToken(currentUser.id);
       _setGcalBtn(true);
       return null;
     }
@@ -973,7 +975,7 @@ async function createGCalEvent(ev){
     console.warn('GCal create failed',e);
     toast('⚠ Google Agenda: falha de rede — toque em Reconectar');
     googleToken=null;
-    if(currentUser)try{localStorage.removeItem('iahub_gtoken_'+currentUser.id);}catch(e){}
+    if(currentUser)_clearGToken(currentUser.id);
     _setGcalBtn(true);
     return null;
   }
