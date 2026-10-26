@@ -519,7 +519,8 @@ async function signInWithGoogle(){
   const origin=window.location.origin;
   const {data,error}=await sb.auth.signInWithOAuth({provider:'google',options:{
     scopes:'https://www.googleapis.com/auth/calendar.events',
-    redirectTo:origin+'/'
+    redirectTo:origin+'/',
+    queryParams:{access_type:'offline',prompt:'consent'}
   }});
   if(error)showLoginError('Erro ao iniciar login: '+error.message);
 }
@@ -814,6 +815,8 @@ async function saveEvento(){
       const gcalId=await createGCalEvent(evSaved);
       if(gcalId){
         await sb.from('agenda_eventos').update({google_event_id:gcalId}).eq('id',savedId);
+      } else if(googleToken===null){
+        toast('⚠ Google Agenda: faça logout e login novamente para reativar a sincronização.');
       }
       await sendInviteEmails(evSaved);
       showGcalPrompt(evSaved,!!gcalId);
