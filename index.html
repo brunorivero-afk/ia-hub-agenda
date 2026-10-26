@@ -373,7 +373,7 @@ IA Hub — agenda.iahubconnect.com.br</pre>
 const SUPA_URL='https://pxcqyzbgfbwwkazmonzx.supabase.co';
 const SUPA_KEY='sb_publishable_6QT2f_wCkTmpfoO_EEZlpA_BCcC8Fv8';
 let sb=null;
-try{sb=supabase.createClient(SUPA_URL,SUPA_KEY);}catch(e){console.warn(e);}
+try{sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{flowType:'implicit'}});}catch(e){console.warn(e);}
 
 let membros=[],eventos=[],currentUser=null,viewDate=new Date(),calView='week',editId=null,googleToken=null;
 
