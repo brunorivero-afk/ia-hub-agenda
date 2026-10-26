@@ -530,7 +530,7 @@ async function signInWithGoogle(){
 function enterApp(){
   document.getElementById('tb-username').textContent=currentUser.nome;
   document.getElementById('btn-admin').style.display=currentUser.admin?'inline-block':'none';
-  document.getElementById('btn-gcal-reconnect').style.display=googleToken?'none':'inline-block';
+  _setGcalBtn(!googleToken);
   renderCal();showScreen('app');
 }
 function doLogout(){sb.auth.signOut();currentUser=null;googleToken=null;}
@@ -910,15 +910,24 @@ async function testEmail(){
 }
 
 // ===== GOOGLE CALENDAR API =====
+function _setGcalBtn(show){
+  const el=document.getElementById('btn-gcal-reconnect');
+  if(el)el.style.display=show?'inline-block':'none';
+}
 async function refreshGoogleToken(){
   try{
     const{data:rd}=await sb.auth.refreshSession();
     if(rd?.session?.provider_token){
       googleToken=rd.session.provider_token;
       if(currentUser)try{localStorage.setItem('iahub_gtoken_'+currentUser.id,googleToken);}catch(e){}
+      _setGcalBtn(false);
       return true;
     }
   }catch(e){console.warn('token refresh failed',e);}
+  // Token inválido ou sem refresh token — limpa cache
+  googleToken=null;
+  if(currentUser)try{localStorage.removeItem('iahub_gtoken_'+currentUser.id);}catch(e){}
+  _setGcalBtn(true);
   return false;
 }
 async function createGCalEvent(ev){
