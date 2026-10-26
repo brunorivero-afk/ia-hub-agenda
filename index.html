@@ -412,7 +412,10 @@ async function boot(){
   } else {
     await loadMembros();showLoginScreen();
   }
-  setInterval(()=>{loadEventos().then(renderCal);},60000);
+  setInterval(()=>{if(currentUser)loadEventos().then(renderCal);},60000);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'&&currentUser)loadEventos().then(renderCal);
+  });
 }
 function tryParse(s){try{return JSON.parse(s);}catch{return null;}}
 
