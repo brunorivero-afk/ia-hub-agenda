@@ -215,6 +215,7 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
     <div class="tb-right">
       <span class="tb-user" id="tb-username"></span>
       <button class="tb-btn gold" id="btn-admin" style="display:none" onclick="showAdmin()">⚙ Admin</button>
+      <button class="tb-btn" id="btn-gcal-reconnect" style="display:none;background:#4285F4;color:#fff" onclick="signInWithGoogle()" title="Token do Google Agenda expirou">📅 Reconectar</button>
       <button class="tb-btn" onclick="doLogout()">Sair</button>
     </div>
   </div>
@@ -529,6 +530,7 @@ async function signInWithGoogle(){
 function enterApp(){
   document.getElementById('tb-username').textContent=currentUser.nome;
   document.getElementById('btn-admin').style.display=currentUser.admin?'inline-block':'none';
+  document.getElementById('btn-gcal-reconnect').style.display=googleToken?'none':'inline-block';
   renderCal();showScreen('app');
 }
 function doLogout(){sb.auth.signOut();currentUser=null;googleToken=null;}
@@ -1057,9 +1059,11 @@ function gcalUrl(ev){
 }
 function showGcalPrompt(ev,syncedToGoogle){
   const s=SALAS[ev.sala]||{label:ev.sala};
+  let extra='';
+  if(syncedToGoogle) extra='<br><span style="color:#059669;font-size:12px">✅ Adicionado ao Google Agenda automaticamente</span>';
+  else if(!googleToken) extra='<br><span style="color:#dc2626;font-size:12px">⚠ Toque em "📅 Reconectar" no topo para ativar a sincronização.</span>';
   document.getElementById('gcal-summary').innerHTML=
-    `<strong>📌 ${esc(ev.titulo)}</strong><br>📅 ${fmtData(ev.data)} · ${ev.hora_inicio} – ${ev.hora_fim}<br>📍 ${s.label}`+
-    (syncedToGoogle?'<br><span style="color:#059669;font-size:12px">✅ Adicionado ao Google Agenda automaticamente</span>':'');
+    `<strong>📌 ${esc(ev.titulo)}</strong><br>📅 ${fmtData(ev.data)} · ${ev.hora_inicio} – ${ev.hora_fim}<br>📍 ${s.label}`+extra;
   const lnkEl=document.getElementById('gcal-link');
   lnkEl.href=gcalUrl(ev);
   lnkEl.style.display=syncedToGoogle?'none':'inline-flex';
