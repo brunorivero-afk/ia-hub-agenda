@@ -397,6 +397,7 @@ async function boot(){
 
   sb.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_IN'&&session){
+      setTimeout(()=>toast(session.provider_token?'[D] token:SIM':'[D] token:NAO event='+event),300);
       await loadMembros();await loadEventos();
       await handleGoogleSession(session);
     } else if(event==='SIGNED_OUT'){
