@@ -934,6 +934,7 @@ async function refreshGoogleToken(){
   return false;
 }
 async function createGCalEvent(ev){
+  toast('[D2] ao criar: tok='+(googleToken?'SIM':'NAO'));
   if(!googleToken){await refreshGoogleToken();if(!googleToken)return null;}
   try{
     const s=SALAS[ev.sala]||{label:ev.sala};
