@@ -949,7 +949,7 @@ async function createGCalEvent(ev){
       attendees,
       reminders:{useDefault:true}
     };
-    const res=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all',{
+    const res=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=none',{
       method:'POST',
       headers:{'Authorization':`Bearer ${googleToken}`,'Content-Type':'application/json'},
       body:JSON.stringify(body)
