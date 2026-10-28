@@ -1026,7 +1026,7 @@ function showGcalPrompt(ev,sync){
   if(syncedToGoogle){
     const n=sync.convidados||0;
     extra=`<br><span style="color:#059669;font-size:12px">✅ Convite do Google Agenda enviado${n?` para ${n} pessoa${n>1?'s':''}`:''} — aceite no seu email/agenda</span>`;
-  } else extra='<br><span style="color:#b45309;font-size:12px">⚠ Não foi possível enviar o convite automático agora. Use o botão abaixo para adicionar à sua agenda.</span>';
+  } else extra=`<br><span style="color:#b45309;font-size:12px">⚠ Não foi possível enviar o convite automático agora. Use o botão abaixo para adicionar à sua agenda.</span><br><span style="color:#9ca3af;font-size:11px">Detalhe: ${esc(sync?.error||'sem resposta')}</span>`;
   document.getElementById('gcal-summary').innerHTML=
     `<strong>📌 ${esc(ev.titulo)}</strong><br>📅 ${fmtData(ev.data)} · ${ev.hora_inicio} – ${ev.hora_fim}<br>📍 ${s.label}`+extra;
   const lnkEl=document.getElementById('gcal-link');
