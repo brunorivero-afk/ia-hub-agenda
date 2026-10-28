@@ -215,7 +215,6 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
     <div class="tb-right">
       <span class="tb-user" id="tb-username"></span>
       <button class="tb-btn gold" id="btn-admin" style="display:none" onclick="showAdmin()">⚙ Admin</button>
-      <button class="tb-btn" id="btn-gcal-reconnect" style="display:none;background:#4285F4;color:#fff" onclick="signInWithGoogle()" title="Token do Google Agenda expirou">📅 Reconectar</button>
       <button class="tb-btn" onclick="doLogout()">Sair</button>
     </div>
   </div>
@@ -377,7 +376,7 @@ const INITIAL_HASH=location.hash;
 let sb=null;
 try{sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{flowType:'implicit'}});}catch(e){console.warn(e);}
 
-let membros=[],eventos=[],currentUser=null,viewDate=new Date(),calView='week',editId=null,googleToken=null;
+let membros=[],eventos=[],currentUser=null,viewDate=new Date(),calView='week',editId=null;
 
 const SALAS={
   lounge:{label:'Lounge',color:'#7c3aed'},
@@ -411,8 +410,7 @@ async function boot(){
         await handleGoogleSession(session);
       },0);
     } else if(event==='SIGNED_OUT'){
-      if(currentUser)_clearGToken(currentUser.id);
-      currentUser=null;googleToken=null;
+      currentUser=null;
       showScreen('login');
     }
   });
@@ -444,26 +442,6 @@ async function handleGoogleSession(session){
     return;
   }
   currentUser=m;
-  if(session.provider_token){
-    googleToken=session.provider_token;
-    _saveGToken(m.id,googleToken);
-    setTimeout(()=>toast('✅ Google Agenda conectado!'),800);
-  } else {
-    googleToken=_loadGToken(m.id);
-    if(!googleToken){
-      try{
-        const{data:rd}=await sb.auth.refreshSession();
-        if(rd?.session?.provider_token){
-          googleToken=rd.session.provider_token;
-          _saveGToken(m.id,googleToken);
-        }
-      }catch(e){console.warn('session refresh failed',e);}
-      // Após todos os awaits, a chamada concorrente com provider_token
-      // pode já ter salvo o token — relê para não perder:
-      if(!googleToken) googleToken=_loadGToken(m.id);
-    }
-    if(googleToken) setTimeout(()=>toast('✅ Google Agenda conectado!'),800);
-  }
   enterApp();
 }
 
@@ -541,10 +519,10 @@ async function signInWithGoogle(){
   if(!sb){toast('Sem conexão');return;}
   showLoginError('');
   const origin=window.location.origin;
+  // Só email/perfil: o Google Agenda é gravado pela conta central (Edge Function gcal-sync)
   const {data,error}=await sb.auth.signInWithOAuth({provider:'google',options:{
-    scopes:'https://www.googleapis.com/auth/calendar.events',
     redirectTo:origin+'/',
-    queryParams:{prompt:'consent'}
+    queryParams:{prompt:'select_account'}
   }});
   if(error)showLoginError('Erro ao iniciar login: '+error.message);
 }
@@ -553,10 +531,9 @@ async function signInWithGoogle(){
 function enterApp(){
   document.getElementById('tb-username').textContent=currentUser.nome;
   document.getElementById('btn-admin').style.display=currentUser.admin?'inline-block':'none';
-  _setGcalBtn(!googleToken);
   renderCal();showScreen('app');
 }
-function doLogout(){sb.auth.signOut();currentUser=null;googleToken=null;}
+function doLogout(){sb.auth.signOut();currentUser=null;}
 
 // ===== CALENDARIO =====
 function setView(v){
@@ -828,22 +805,21 @@ async function saveEvento(){
     savedId=row?.id;
   }
 
+  const wasEdit=!!editId;
   await loadEventos();
   renderCal();
   closeModal();
-  toast(editId?'Reserva atualizada!':'Reserva criada!');
+  toast(wasEdit?'Reserva atualizada!':'Reserva criada!');
 
-  if(!editId){
-    const evSaved=eventos.find(e=>String(e.id)===String(savedId));
-    if(evSaved){
-      // Criar no Google Calendar do criador (convida participantes automaticamente)
-      const gcalId=await createGCalEvent(evSaved);
-      if(gcalId){
-        await sb.from('agenda_eventos').update({google_event_id:gcalId}).eq('id',savedId);
-      }
-      await sendInviteEmails(evSaved);
-      showGcalPrompt(evSaved,!!gcalId);
-    }
+  // Calendário central IA Hub: cria/atualiza e o Google manda o convite aos envolvidos
+  const sync=await syncGCal(savedId);
+  if(sync?.ok) await loadEventos();
+  const evSaved=eventos.find(e=>String(e.id)===String(savedId));
+  if(!wasEdit&&evSaved){
+    await sendInviteEmails(evSaved);
+    showGcalPrompt(evSaved,sync);
+  } else if(wasEdit&&sync&&!sync.ok){
+    toast('⚠ Reserva salva, mas o Google Agenda não foi atualizado');
   }
 }
 
@@ -862,7 +838,7 @@ async function deleteEvento(){
   if(ev?.google_event_id)await deleteGCalEvent(ev.google_event_id);
   await sb.from('agenda_eventos').delete().eq('id',editId);
   await loadEventos();renderCal();closeModal();
-  toast('Reserva excluída'+(ev?.google_event_id?' e removida do Google Agenda.':'.'));
+  toast('Reserva excluída'+(ev?.google_event_id?' e cancelada no Google Agenda.':'.'));
 }
 
 // ===== EMAILS =====
@@ -930,89 +906,21 @@ async function testEmail(){
   }catch(e){toast('❌ Erro: '+e.text);console.error(e);}
 }
 
-// ===== GOOGLE CALENDAR API =====
-function _setGcalBtn(show){
-  const el=document.getElementById('btn-gcal-reconnect');
-  if(el)el.style.display=show?'inline-block':'none';
-}
-function _saveGToken(uid,tok){try{localStorage.setItem('iahub_gtoken_'+uid,JSON.stringify({token:tok,exp:Date.now()+3500000}));}catch(e){}}
-function _loadGToken(uid){try{const s=tryParse(localStorage.getItem('iahub_gtoken_'+uid));if(s&&s.exp>Date.now())return s.token;localStorage.removeItem('iahub_gtoken_'+uid);}catch(e){}return null;}
-function _clearGToken(uid){try{localStorage.removeItem('iahub_gtoken_'+uid);}catch(e){}}
-async function refreshGoogleToken(){
+// ===== GOOGLE CALENDAR (calendário central IA Hub via Edge Function gcal-sync) =====
+async function callGCal(body){
   try{
-    const{data:rd}=await sb.auth.refreshSession();
-    if(rd?.session?.provider_token){
-      googleToken=rd.session.provider_token;
-      if(currentUser)_saveGToken(currentUser.id,googleToken);
-      _setGcalBtn(false);
-      return true;
+    const{data,error}=await sb.functions.invoke('gcal-sync',{body});
+    if(error){
+      let msg=error.message;
+      try{const j=await error.context?.json();if(j?.error)msg=j.error;}catch(e){}
+      console.warn('gcal-sync',msg);
+      return{ok:false,error:msg};
     }
-  }catch(e){console.warn('token refresh failed',e);}
-  googleToken=null;
-  if(currentUser)_clearGToken(currentUser.id);
-  _setGcalBtn(true);
-  return false;
+    return data||{ok:false};
+  }catch(e){console.warn('gcal-sync falhou',e);return{ok:false,error:String(e)};}
 }
-async function createGCalEvent(ev){
-  if(!googleToken){await refreshGoogleToken();if(!googleToken)return null;}
-  try{
-    const s=SALAS[ev.sala]||{label:ev.sala};
-    const attendees=(ev.participantes||[]).filter(p=>p.email).map(p=>({email:p.email}));
-    const body={
-      summary:ev.titulo,
-      location:s.label,
-      description:ev.descricao||'',
-      start:{dateTime:`${ev.data}T${ev.hora_inicio}:00`,timeZone:'America/Sao_Paulo'},
-      end:{dateTime:`${ev.data}T${ev.hora_fim}:00`,timeZone:'America/Sao_Paulo'},
-      attendees,
-      reminders:{useDefault:true}
-    };
-    const res=await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=none',{
-      method:'POST',
-      headers:{'Authorization':`Bearer ${googleToken}`,'Content-Type':'application/json'},
-      body:JSON.stringify(body)
-    });
-    const data=await res.json();
-    if(data.error){
-      if(data.error.code===401){
-        const ok=await refreshGoogleToken();
-        if(ok)return createGCalEvent(ev);
-      }
-      console.warn('GCal error',data.error);
-      toast(`⚠ Google Agenda: erro ${data.error.code||'?'} — toque em Reconectar`);
-      googleToken=null;
-      if(currentUser)_clearGToken(currentUser.id);
-      _setGcalBtn(true);
-      return null;
-    }
-    if(!data.id){
-      console.warn('GCal: resposta sem id',data);
-      toast('⚠ Google Agenda: resposta inesperada — toque em Reconectar');
-      googleToken=null;
-      if(currentUser)_clearGToken(currentUser.id);
-      _setGcalBtn(true);
-      return null;
-    }
-    return data.id;
-  }catch(e){
-    console.warn('GCal create failed',e);
-    toast('⚠ Google Agenda: falha de rede — toque em Reconectar');
-    googleToken=null;
-    if(currentUser)_clearGToken(currentUser.id);
-    _setGcalBtn(true);
-    return null;
-  }
-}
-
-async function deleteGCalEvent(gcalId){
-  if(!googleToken||!gcalId)return;
-  try{
-    await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${gcalId}`,{
-      method:'DELETE',
-      headers:{'Authorization':`Bearer ${googleToken}`}
-    });
-  }catch(e){console.warn('GCal delete failed',e);}
-}
+function syncGCal(id){return callGCal({action:'upsert',id});}
+function deleteGCalEvent(gcalId){return gcalId?callGCal({action:'delete',google_event_id:gcalId}):null;}
 
 // ===== ADMIN =====
 function showAdmin(){
@@ -1075,6 +983,8 @@ async function removeMembro(id){
 }
 async function adminDeleteEvento(id){
   if(!confirm('Excluir esta reserva?'))return;
+  const ev=eventos.find(e=>String(e.id)===String(id));
+  if(ev?.google_event_id)await deleteGCalEvent(ev.google_event_id);
   await sb.from('agenda_eventos').delete().eq('id',id);
   await loadEventos();renderAdminEventos();toast('Reserva excluída');
 }
@@ -1109,11 +1019,14 @@ function gcalUrl(ev){
   });
   return 'https://calendar.google.com/calendar/render?'+p.toString();
 }
-function showGcalPrompt(ev,syncedToGoogle){
+function showGcalPrompt(ev,sync){
   const s=SALAS[ev.sala]||{label:ev.sala};
+  const syncedToGoogle=!!sync?.ok;
   let extra='';
-  if(syncedToGoogle) extra='<br><span style="color:#059669;font-size:12px">✅ Adicionado ao Google Agenda automaticamente</span>';
-  else if(!googleToken) extra='<br><span style="color:#dc2626;font-size:12px">⚠ Toque em "📅 Reconectar" no topo para ativar a sincronização.</span>';
+  if(syncedToGoogle){
+    const n=sync.convidados||0;
+    extra=`<br><span style="color:#059669;font-size:12px">✅ Convite do Google Agenda enviado${n?` para ${n} pessoa${n>1?'s':''}`:''} — aceite no seu email/agenda</span>`;
+  } else extra='<br><span style="color:#b45309;font-size:12px">⚠ Não foi possível enviar o convite automático agora. Use o botão abaixo para adicionar à sua agenda.</span>';
   document.getElementById('gcal-summary').innerHTML=
     `<strong>📌 ${esc(ev.titulo)}</strong><br>📅 ${fmtData(ev.data)} · ${ev.hora_inicio} – ${ev.hora_fim}<br>📍 ${s.label}`+extra;
   const lnkEl=document.getElementById('gcal-link');
