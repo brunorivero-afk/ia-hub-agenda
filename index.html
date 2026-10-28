@@ -452,6 +452,15 @@ async function handleGoogleSession(session){
   if(currentUser&&document.getElementById('screen-app').style.display!=='none')return;
   const email=session.user?.email;
   if(!email){showLoginScreen();showLoginError('Erro ao obter seu email Google.');return;}
+  // Conta da empresa não é membro: entrar com ela sempre significa conectar o Google Agenda
+  if(email.toLowerCase()===GCAL_OWNER){
+    if(_gcalRedirecting) return;
+    let recente=false;
+    try{recente=Date.now()-Number(sessionStorage.getItem('iahub_gcal_auto')||0)<120000;}catch(e){}
+    if(session.provider_refresh_token||recente) return finishGcalSetup(session); // sem loop de redirecionamento
+    try{sessionStorage.setItem('iahub_gcal_auto',String(Date.now()));}catch(e){}
+    return connectCompanyCalendar(true);
+  }
   const m=membros.find(x=>x.email&&x.email.trim().toLowerCase()===email.toLowerCase());
   if(!m){
     await sb.auth.signOut();
@@ -941,15 +950,19 @@ async function callGCal(body){
 function syncGCal(id){return callGCal({action:'upsert',id});}
 
 // Admin: autoriza a conta da empresa e grava o refresh token direto no banco (sem copiar nada)
-async function connectCompanyCalendar(){
-  if(!confirm(`Na próxima tela, escolha a conta ${GCAL_OWNER} e permita o acesso à agenda.\n\nDepois você volta para o login e entra de novo com a sua conta.`))return;
+let _gcalRedirecting=false;
+async function connectCompanyCalendar(auto){
+  if(_gcalRedirecting)return;
+  if(auto){showScreen('loading');}
+  else if(!confirm(`Na próxima tela, escolha a conta ${GCAL_OWNER} e permita o acesso à agenda.\n\nDepois você volta para o login e entra de novo com a sua conta.`))return;
+  _gcalRedirecting=true;
   try{localStorage.setItem('iahub_gcal_setup','1');}catch(e){}
   const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{
     redirectTo:window.location.origin+'/',
     scopes:'https://www.googleapis.com/auth/calendar.events',
     queryParams:{access_type:'offline',prompt:'consent',login_hint:GCAL_OWNER}
   }});
-  if(error){try{localStorage.removeItem('iahub_gcal_setup');}catch(e){}toast('Erro: '+error.message);}
+  if(error){_gcalRedirecting=false;try{localStorage.removeItem('iahub_gcal_setup');}catch(e){}showScreen('login');showLoginError('Erro: '+error.message);}
 }
 let _gcalSetupRun=null;
 function finishGcalSetup(session){
@@ -963,6 +976,7 @@ function finishGcalSetup(session){
     else r=await callGCal({action:'save_token',refresh_token:session.provider_refresh_token||''});
     await sb.auth.signOut();
     showLoginScreen();
+    try{sessionStorage.removeItem('iahub_gcal_auto');}catch(e){}
     if(r?.ok) showLoginError('✅ Google Agenda da empresa conectado! Agora entre com a sua conta.',true);
     else showLoginError('Não foi possível conectar a agenda da empresa: '+(r?.error||'sem resposta'));
   })();
