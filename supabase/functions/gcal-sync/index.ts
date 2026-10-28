@@ -1,8 +1,10 @@
 // Edge Function gcal-sync — Agenda IA Hub
 // A conta iahub.agenda@gmail.com é dona do calendário das salas: cria/atualiza/apaga
 // o evento e o Google envia o convite para quem reservou e para os participantes.
-// Secrets necessários: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN
-// Opcional: GCAL_CALENDAR_ID (padrão: 'primary' = agenda principal da conta)
+// Secrets necessários: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+// O refresh token da conta da empresa fica na tabela agenda_config (gravado pelo botão
+// "Conectar Google Agenda da empresa" no Admin); GOOGLE_REFRESH_TOKEN é só reserva.
+// Opcional: GCAL_CALENDAR_ID (padrão: 'primary'), GCAL_OWNER_EMAIL (padrão: iahub.agenda@gmail.com)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const CORS = {
@@ -18,24 +20,27 @@ const SALAS: Record<string, string> = {
 };
 const CAL = encodeURIComponent(Deno.env.get("GCAL_CALENDAR_ID") || "primary");
 const API = `https://www.googleapis.com/calendar/v3/calendars/${CAL}/events`;
+const OWNER = (Deno.env.get("GCAL_OWNER_EMAIL") || "iahub.agenda@gmail.com").trim().toLowerCase();
+const env = (k: string) => (Deno.env.get(k) || "").trim();
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 }
 
-async function googleToken(): Promise<string> {
+async function googleToken(refreshToken: string): Promise<string> {
+  if (!refreshToken) throw new Error("Google Agenda da empresa não conectado (Admin → Conectar)");
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: Deno.env.get("GOOGLE_CLIENT_ID")!,
-      client_secret: Deno.env.get("GOOGLE_CLIENT_SECRET")!,
-      refresh_token: Deno.env.get("GOOGLE_REFRESH_TOKEN")!,
+      client_id: env("GOOGLE_CLIENT_ID"),
+      client_secret: env("GOOGLE_CLIENT_SECRET"),
+      refresh_token: refreshToken.trim(),
       grant_type: "refresh_token",
     }),
   });
   const data = await res.json();
-  if (!data.access_token) throw new Error("Google token: " + (data.error_description || data.error || res.status));
+  if (!data.access_token) throw new Error(`Google token: ${data.error || res.status} ${data.error_description || ""}`.trim());
   return data.access_token;
 }
 
@@ -49,12 +54,25 @@ Deno.serve(async (req) => {
     const { data: u } = await admin.auth.getUser(jwt);
     const email = u?.user?.email?.toLowerCase();
     if (!email) return json({ error: "não autenticado" }, 401);
+    const { action, id, google_event_id, refresh_token } = await req.json();
+
+    // Conexão da agenda da empresa: só a própria conta dona pode gravar o token
+    if (action === "save_token") {
+      if (email !== OWNER) return json({ error: `entre com ${OWNER} para conectar` }, 403);
+      if (!refresh_token) return json({ error: "o Google não devolveu o refresh token" }, 400);
+      await googleToken(refresh_token); // valida antes de gravar
+      const { error: e } = await admin.from("agenda_config")
+        .upsert({ chave: "google_refresh_token", valor: refresh_token, atualizado_em: new Date().toISOString() });
+      if (e) return json({ error: "banco: " + e.message }, 500);
+      return json({ ok: true });
+    }
+
     const { data: membros } = await admin.from("agenda_membros").select("id,nome,email,ativo");
     const membro = (membros || []).find((m) => m.ativo && (m.email || "").trim().toLowerCase() === email);
     if (!membro) return json({ error: "membro não cadastrado" }, 403);
 
-    const { action, id, google_event_id } = await req.json();
-    const token = await googleToken();
+    const { data: cfg } = await admin.from("agenda_config").select("valor").eq("chave", "google_refresh_token").maybeSingle();
+    const token = await googleToken(cfg?.valor || env("GOOGLE_REFRESH_TOKEN"));
     const auth = { Authorization: `Bearer ${token}` };
 
     if (action === "delete") {

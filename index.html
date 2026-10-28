@@ -249,7 +249,14 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
   </div>
   <div class="admin-body">
     <div class="a-section">
-      <h3>Membros <button class="btn-p btn-sm" onclick="openAddMembro()">+ Novo</button></h3>
+      <h3>Google Agenda da empresa</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+        As reservas viram eventos na agenda da conta <strong>iahub.agenda@gmail.com</strong>, que envia os convites a quem reservou e aos participantes. Clique abaixo e escolha essa conta no Google. Só é preciso fazer de novo se os convites pararem de sair.
+      </p>
+      <button class="btn-p btn-sm" onclick="connectCompanyCalendar()">🔗 Conectar Google Agenda da empresa</button>
+    </div>
+    <div class="a-section">
+      <h3>Membros<button class="btn-p btn-sm" onclick="openAddMembro()">+ Novo</button></h3>
       <div id="admin-membros"></div>
     </div>
     <div class="a-section">
@@ -377,6 +384,9 @@ let sb=null;
 try{sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{flowType:'implicit'}});}catch(e){console.warn(e);}
 
 let membros=[],eventos=[],currentUser=null,viewDate=new Date(),calView='week',editId=null;
+// Retorno do botão "Conectar Google Agenda da empresa" (Admin)
+const GCAL_OWNER='iahub.agenda@gmail.com';
+let gcalSetupMode=(()=>{try{return localStorage.getItem('iahub_gcal_setup')==='1';}catch(e){return false;}})();
 
 const SALAS={
   lounge:{label:'Lounge',color:'#7c3aed'},
@@ -399,13 +409,17 @@ async function boot(){
   // Erro devolvido pelo Google/Supabase no retorno do login (ex.: acesso negado)
   const hp=new URLSearchParams(INITIAL_HASH.replace(/^#/,''));
   const authErr=hp.get('error_description')||params.get('error_description');
-  if(authErr) history.replaceState(null,'',location.pathname);
+  if(authErr){
+    history.replaceState(null,'',location.pathname);
+    if(gcalSetupMode){gcalSetupMode=false;try{localStorage.removeItem('iahub_gcal_setup');}catch(e){}}
+  }
 
   // Callback síncrono: chamar o Supabase com await aqui dentro trava o login
   // no retorno do Google (deadlock do supabase-js) — por isso o setTimeout.
   sb.auth.onAuthStateChange((event,session)=>{
     if(event==='SIGNED_IN'&&session){
       setTimeout(async()=>{
+        if(gcalSetupMode){await finishGcalSetup(session);return;}
         await loadMembros();await loadEventos();
         await handleGoogleSession(session);
       },0);
@@ -416,7 +430,9 @@ async function boot(){
   });
 
   const{data:{session}}=await sb.auth.getSession();
-  if(session){
+  if(session&&gcalSetupMode){
+    await finishGcalSetup(session);
+  } else if(session){
     await loadMembros();await loadEventos();
     await handleGoogleSession(session);
   } else {
@@ -508,9 +524,10 @@ function showLoginScreen(){
   showScreen('login');
   if(isInAppBrowser()) showLoginError('Você abriu pelo navegador interno de um app (WhatsApp, Instagram…). O Google bloqueia o login aqui: toque em ⋮ ou no ícone de compartilhar e escolha "Abrir no Chrome" / "Abrir no Safari".');
 }
-function showLoginError(msg){
+function showLoginError(msg,ok){
   const el=document.getElementById('login-err');
   el.textContent=msg;el.style.display=msg?'block':'none';
+  el.style.color=ok?'#059669':'';
 }
 function isInAppBrowser(){
   return /FBAN|FBAV|Instagram|WhatsApp|Line\/|LinkedInApp|; wv\)/i.test(navigator.userAgent);
@@ -920,6 +937,35 @@ async function callGCal(body){
   }catch(e){console.warn('gcal-sync falhou',e);return{ok:false,error:String(e)};}
 }
 function syncGCal(id){return callGCal({action:'upsert',id});}
+
+// Admin: autoriza a conta da empresa e grava o refresh token direto no banco (sem copiar nada)
+async function connectCompanyCalendar(){
+  if(!confirm(`Na próxima tela, escolha a conta ${GCAL_OWNER} e permita o acesso à agenda.\n\nDepois você volta para o login e entra de novo com a sua conta.`))return;
+  try{localStorage.setItem('iahub_gcal_setup','1');}catch(e){}
+  const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{
+    redirectTo:window.location.origin+'/',
+    scopes:'https://www.googleapis.com/auth/calendar.events',
+    queryParams:{access_type:'offline',prompt:'consent',login_hint:GCAL_OWNER}
+  }});
+  if(error){try{localStorage.removeItem('iahub_gcal_setup');}catch(e){}toast('Erro: '+error.message);}
+}
+let _gcalSetupRun=null;
+function finishGcalSetup(session){
+  if(_gcalSetupRun)return _gcalSetupRun;
+  _gcalSetupRun=(async()=>{
+    gcalSetupMode=false;
+    try{localStorage.removeItem('iahub_gcal_setup');}catch(e){}
+    const email=(session.user?.email||'').toLowerCase();
+    let r;
+    if(email!==GCAL_OWNER) r={ok:false,error:`você entrou com ${email}; escolha a conta ${GCAL_OWNER}`};
+    else r=await callGCal({action:'save_token',refresh_token:session.provider_refresh_token||''});
+    await sb.auth.signOut();
+    showLoginScreen();
+    if(r?.ok) showLoginError('✅ Google Agenda da empresa conectado! Agora entre com a sua conta.',true);
+    else showLoginError('Não foi possível conectar a agenda da empresa: '+(r?.error||'sem resposta'));
+  })();
+  return _gcalSetupRun;
+}
 function deleteGCalEvent(gcalId){return gcalId?callGCal({action:'delete',google_event_id:gcalId}):null;}
 
 // ===== ADMIN =====
