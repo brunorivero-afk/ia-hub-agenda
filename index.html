@@ -419,7 +419,9 @@ async function boot(){
   sb.auth.onAuthStateChange((event,session)=>{
     if(event==='SIGNED_IN'&&session){
       setTimeout(async()=>{
-        if(gcalSetupMode){await finishGcalSetup(session);return;}
+        // _gcalSetupRun: a conexão pode já ter começado pelo getSession() do boot —
+        // sem isso, handleGoogleSession desloga a conta da empresa no meio da gravação
+        if(gcalSetupMode||_gcalSetupRun){await finishGcalSetup(session);return;}
         await loadMembros();await loadEventos();
         await handleGoogleSession(session);
       },0);
@@ -430,7 +432,7 @@ async function boot(){
   });
 
   const{data:{session}}=await sb.auth.getSession();
-  if(session&&gcalSetupMode){
+  if(session&&(gcalSetupMode||_gcalSetupRun)){
     await finishGcalSetup(session);
   } else if(session){
     await loadMembros();await loadEventos();
