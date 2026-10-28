@@ -372,6 +372,8 @@ IA Hub — agenda.iahubconnect.com.br</pre>
 <script>
 const SUPA_URL='https://pxcqyzbgfbwwkazmonzx.supabase.co';
 const SUPA_KEY='sb_publishable_6QT2f_wCkTmpfoO_EEZlpA_BCcC8Fv8';
+// Captura o hash antes do supabase-js limpá-lo (erro devolvido pelo Google no retorno do login)
+const INITIAL_HASH=location.hash;
 let sb=null;
 try{sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{flowType:'implicit'}});}catch(e){console.warn(e);}
 
@@ -395,14 +397,23 @@ async function boot(){
 
   if(!sb){showLoginScreen();return;}
 
-  sb.auth.onAuthStateChange(async(event,session)=>{
+  // Erro devolvido pelo Google/Supabase no retorno do login (ex.: acesso negado)
+  const hp=new URLSearchParams(INITIAL_HASH.replace(/^#/,''));
+  const authErr=hp.get('error_description')||params.get('error_description');
+  if(authErr) history.replaceState(null,'',location.pathname);
+
+  // Callback síncrono: chamar o Supabase com await aqui dentro trava o login
+  // no retorno do Google (deadlock do supabase-js) — por isso o setTimeout.
+  sb.auth.onAuthStateChange((event,session)=>{
     if(event==='SIGNED_IN'&&session){
-      await loadMembros();await loadEventos();
-      await handleGoogleSession(session);
+      setTimeout(async()=>{
+        await loadMembros();await loadEventos();
+        await handleGoogleSession(session);
+      },0);
     } else if(event==='SIGNED_OUT'){
       if(currentUser)_clearGToken(currentUser.id);
       currentUser=null;googleToken=null;
-      await loadMembros();showLoginScreen();
+      showScreen('login');
     }
   });
 
@@ -412,6 +423,7 @@ async function boot(){
     await handleGoogleSession(session);
   } else {
     await loadMembros();showLoginScreen();
+    if(authErr) showLoginError('Login não concluído: '+authErr);
   }
   setInterval(()=>{if(currentUser)loadEventos().then(renderCal);},60000);
   document.addEventListener('visibilitychange',()=>{
@@ -421,13 +433,15 @@ async function boot(){
 function tryParse(s){try{return JSON.parse(s);}catch{return null;}}
 
 async function handleGoogleSession(session){
+  if(currentUser&&document.getElementById('screen-app').style.display!=='none')return;
   const email=session.user?.email;
-  if(!email){showLoginError('Erro ao obter seu email Google.');showLoginScreen();return;}
-  const m=membros.find(x=>x.email&&x.email.toLowerCase()===email.toLowerCase());
+  if(!email){showLoginScreen();showLoginError('Erro ao obter seu email Google.');return;}
+  const m=membros.find(x=>x.email&&x.email.trim().toLowerCase()===email.toLowerCase());
   if(!m){
     await sb.auth.signOut();
-    showLoginError(`Email ${email} não cadastrado na Agenda. Peça ao administrador.`);
-    showLoginScreen();return;
+    showLoginScreen();
+    showLoginError(`O email ${email} não está cadastrado na Agenda. Peça ao administrador para incluí-lo.`);
+    return;
   }
   currentUser=m;
   if(session.provider_token){
@@ -514,10 +528,14 @@ function setConfScreen(icon,title,msg,ev){
 function showLoginScreen(){
   document.getElementById('login-err').style.display='none';
   showScreen('login');
+  if(isInAppBrowser()) showLoginError('Você abriu pelo navegador interno de um app (WhatsApp, Instagram…). O Google bloqueia o login aqui: toque em ⋮ ou no ícone de compartilhar e escolha "Abrir no Chrome" / "Abrir no Safari".');
 }
 function showLoginError(msg){
   const el=document.getElementById('login-err');
-  el.textContent=msg;el.style.display='block';
+  el.textContent=msg;el.style.display=msg?'block':'none';
+}
+function isInAppBrowser(){
+  return /FBAN|FBAV|Instagram|WhatsApp|Line\/|LinkedInApp|; wv\)/i.test(navigator.userAgent);
 }
 async function signInWithGoogle(){
   if(!sb){toast('Sem conexão');return;}
