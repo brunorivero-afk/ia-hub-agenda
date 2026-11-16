@@ -97,6 +97,17 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
 .mv-day{font-size:12px;font-weight:600;color:var(--navy);margin-bottom:3px;line-height:1;}
 .mv-evt{border-radius:3px;padding:1px 5px;margin-bottom:2px;color:#fff;font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;cursor:pointer;}
 .mv-evt:hover{opacity:.82;}
+/* Bloqueio de horário por sócio: listrado, para não confundir com reserva de sala */
+.blk-evt{background:repeating-linear-gradient(135deg,#e5e7eb 0 6px,#f3f4f6 6px 12px)!important;color:#374151!important;box-shadow:inset 0 0 0 1px #9ca3af;}
+.blk-evt.prof{background:repeating-linear-gradient(135deg,#fde68a 0 6px,#fef3c7 6px 12px)!important;color:#78350f!important;box-shadow:inset 0 0 0 1px #f59e0b;}
+.dv-th-socios{background:#6b7280;}
+.dv-th-sala_inteira{background:#b45309;}
+.blk-tipos{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.blk-tipo{border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;font-size:13px;color:var(--navy);display:block;}
+.blk-tipo input{margin-right:6px;}
+.blk-tipo small{display:block;color:var(--muted);font-size:11px;margin-top:3px;line-height:1.4;}
+.blk-tipo:has(input:checked){border-color:var(--gold);background:#fdf8ed;}
+.blk-warn{background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:12px;}
 .mv-more{font-size:10px;color:var(--muted);padding:1px 5px;cursor:pointer;font-weight:600;}
 .mv-more:hover{color:var(--navy);}
 
@@ -149,8 +160,6 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
 .mbr-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f3;}
 .mbr-row:last-child{border-bottom:none;}
 .mbr-name{flex:1;font-size:14px;font-weight:500;}
-.mbr-pin-inp{width:80px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;text-align:center;}
-.mbr-pin-inp:focus{border-color:var(--gold);outline:none;}
 .tag-admin{font-size:10px;background:#fdf8ed;color:#92400e;border:1px solid #fcd34d;border-radius:10px;padding:1px 7px;font-weight:700;}
 .tog-ativo{font-size:11px;padding:3px 8px;border-radius:10px;border:none;cursor:pointer;font-weight:600;}
 .tog-ativo.on{background:#dcfce7;color:#14532d;}
@@ -167,7 +176,7 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
 @keyframes spin{to{transform:rotate(360deg)}}
 
 @media(max-width:600px){
-  .frow,.ext-row,.ejs-cfg{grid-template-columns:1fr;}
+  .frow,.ext-row,.ejs-cfg,.blk-tipos{grid-template-columns:1fr;}
   .tb-user{display:none;}
   .int-chip{font-size:11px;}
 }
@@ -230,12 +239,15 @@ table.dv td.time-col{font-size:11px;color:var(--muted);text-align:right;padding-
         <button class="vbtn" id="vbtn-day" onclick="setView('day')">Dia</button>
         <button class="vbtn" id="vbtn-month" onclick="setView('month')">Mês</button>
       </div>
+      <button class="btn-s btn-sm" onclick="openBloqueio(null)" style="padding:8px 12px" title="Marcar um horário em que você não está disponível">⛔ Bloquear horário</button>
       <button class="btn-p btn-sm" onclick="openModal(null)" style="padding:8px 16px">+ Reservar</button>
     </div>
     <div class="legend">
       <div class="leg-pill" style="background:var(--lounge)">Lounge</div>
       <div class="leg-pill" style="background:var(--r1)">Reunião 1º Andar</div>
       <div class="leg-pill" style="background:var(--r2)">Sala de Reuniões (2º Andar)</div>
+      <div class="leg-pill blk-evt">⛔ Indisponível</div>
+      <div class="leg-pill blk-evt prof">⛔ Compromisso fora</div>
     </div>
     <div class="cal-scroller" id="cal-scroller"></div>
   </div>
@@ -304,6 +316,7 @@ IA Hub — agenda.iahubconnect.com.br</pre>
     <button class="mcls" onclick="closeModal()">✕</button>
     <h2 id="modal-title">Nova Reserva</h2>
     <div id="conflict-warn" class="conflict-box" style="display:none">⚠ Conflito: esta sala já está reservada neste horário.</div>
+    <div id="blk-warn" class="blk-warn" style="display:none"></div>
     <div class="fg"><label>Título *</label><input id="f-titulo" placeholder="Ex: Reunião de alinhamento" oninput="checkConflict()"></div>
     <div class="frow" style="margin-bottom:14px">
       <div class="fg" style="margin-bottom:0"><label>Sala *</label>
@@ -342,7 +355,30 @@ IA Hub — agenda.iahubconnect.com.br</pre>
   </div>
 </div>
 
-<!-- MODAL MEU PIN -->
+<!-- MODAL BLOQUEIO DE HORÁRIO -->
+<div class="ov" id="ov-bloqueio">
+  <div class="modal" style="max-width:440px">
+    <button class="mcls" onclick="closeOv('ov-bloqueio')">✕</button>
+    <h2 id="blk-title">Bloquear horário</h2>
+    <p style="font-size:12px;color:var(--muted);margin:-8px 0 16px;line-height:1.5">Marca que você não está disponível. Não reserva sala e não envia convite.</p>
+    <div class="blk-tipos">
+      <label class="blk-tipo"><input type="radio" name="blk-tipo" value="pessoal" checked onchange="onBlkTipo()"><strong>Pessoal</strong><small>Sem motivo. Os outros veem só "Indisponível".</small></label>
+      <label class="blk-tipo"><input type="radio" name="blk-tipo" value="profissional" onchange="onBlkTipo()"><strong>Profissional</strong><small>Ex.: reunião fora. Motivo obrigatório e visível.</small></label>
+    </div>
+    <div class="fg" id="blk-motivo-wrap" style="display:none"><label>Motivo *</label><input id="blk-motivo" placeholder="Ex.: Reunião no cliente X" maxlength="80"></div>
+    <div class="fg"><label>Data *</label><input type="date" id="blk-data"></div>
+    <div class="fg"><label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--navy);cursor:pointer"><input type="checkbox" id="blk-dia" onchange="onBlkDia()" style="width:auto;margin:0"> Dia inteiro</label></div>
+    <div class="frow" id="blk-horas" style="margin-bottom:14px">
+      <div class="fg" style="margin-bottom:0"><label>Início *</label><input type="time" id="blk-inicio"></div>
+      <div class="fg" style="margin-bottom:0"><label>Término *</label><input type="time" id="blk-fim"></div>
+    </div>
+    <div class="mbtns">
+      <button class="btn-d" id="blk-excluir" style="display:none" onclick="deleteBloqueio()">Excluir</button>
+      <button class="btn-s" onclick="closeOv('ov-bloqueio')">Cancelar</button>
+      <button class="btn-p" onclick="saveBloqueio()">Salvar bloqueio</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL ADD MEMBRO -->
 <div class="ov" id="ov-add-mbr">
@@ -350,8 +386,7 @@ IA Hub — agenda.iahubconnect.com.br</pre>
     <button class="mcls" onclick="closeOv('ov-add-mbr')">✕</button>
     <h2>Novo Membro</h2>
     <div class="fg"><label>Nome</label><input id="adm-nome" placeholder="Nome completo"></div>
-    <div class="fg"><label>E-mail (para receber convites)</label><input id="adm-email" type="email" placeholder="email@empresa.com"></div>
-    <div class="fg"><label>PIN inicial (4 dígitos)</label><input id="adm-pin" placeholder="1234" maxlength="4"></div>
+    <div class="fg"><label>E-mail Google (login e convites)</label><input id="adm-email" type="email" placeholder="nome@gmail.com"></div>
     <div class="fg"><label><input type="checkbox" id="adm-is-admin"> &nbsp;Administrador</label></div>
     <div class="mbtns">
       <button class="btn-s" onclick="closeOv('ov-add-mbr')">Cancelar</button>
@@ -383,7 +418,7 @@ const INITIAL_HASH=location.hash;
 let sb=null;
 try{sb=supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{flowType:'implicit'}});}catch(e){console.warn(e);}
 
-let membros=[],eventos=[],currentUser=null,viewDate=new Date(),calView='week',editId=null;
+let membros=[],eventos=[],bloqueios=[],currentUser=null,viewDate=new Date(),calView='week',editId=null,blkEditId=null;
 // Retorno do botão "Conectar Google Agenda da empresa" (Admin)
 const GCAL_OWNER='iahub.agenda@gmail.com';
 let gcalSetupMode=(()=>{try{return localStorage.getItem('iahub_gcal_setup')==='1';}catch(e){return false;}})();
@@ -484,8 +519,12 @@ async function loadMembrosAll(){
 }
 async function loadEventos(){
   if(!sb)return;
-  const{data,error}=await sb.from('agenda_eventos').select('*').order('data').order('hora_inicio');
-  if(!error&&data)eventos=data;
+  const[ev,bl]=await Promise.all([
+    sb.from('agenda_eventos').select('*').order('data').order('hora_inicio'),
+    sb.from('agenda_bloqueios').select('*').order('data').order('hora_inicio')
+  ]);
+  if(!ev.error&&ev.data)eventos=ev.data;
+  if(!bl.error&&bl.data)bloqueios=bl.data;
 }
 
 // ===== CONFIRMAÇÃO DE PRESENÇA =====
@@ -596,10 +635,11 @@ function renderMonth(){
       const cur=new Date(start);cur.setDate(start.getDate()+w*7+d);
       const ds=cur.toISOString().split('T')[0];
       const isToday=ds===today,isOther=cur.getMonth()!==m;
-      const dayEvts=eventos.filter(e=>e.data===ds).sort((a,b)=>a.hora_inicio.localeCompare(b.hora_inicio));
+      const dayEvts=[...eventos.filter(e=>e.data===ds),...bloqueios.filter(b=>b.data===ds)].sort((a,b)=>a.hora_inicio.localeCompare(b.hora_inicio));
       h+=`<div class="mv-cell${isOther?' other-month':''}${isToday?' today':''}" onclick="openModal(null,'${ds}','09:00')">`;
       h+=`<div class="mv-day"><span>${cur.getDate()}</span></div>`;
       dayEvts.slice(0,3).forEach(e=>{
+        if(e.tipo){h+=blkChip(e,'mv-evt');return;}
         const s=SALAS[e.sala]||{label:e.sala,color:'#555'};
         h+=`<div class="mv-evt" style="background:${s.color}" onclick="event.stopPropagation();openModal('${e.id}')" title="${esc(e.titulo)}">${e.hora_inicio.slice(0,5)} ${esc(e.titulo)}</div>`;
       });
@@ -632,6 +672,7 @@ function renderWeek(){
       const evts=eventos.filter(e=>e.data===ds&&parseInt(e.hora_inicio.split(':')[0])===hh);
       h+=`<td onclick="openModal(null,'${ds}','${String(hh).padStart(2,'0')}:00')">`;
       evts.forEach(e=>{const s=SALAS[e.sala]||{label:e.sala,color:'#555'};h+=`<div class="wk-evt" style="background:${s.color}" onclick="event.stopPropagation();openModal('${e.id}')" title="${esc(e.titulo)}">${e.hora_inicio} ${esc(e.titulo)}</div>`;});
+      blkStartingAt(ds,hh).forEach(b=>{h+=blkChip(b,'wk-evt');});
       h+='</td>';
     });
     h+='</tr>';
@@ -648,19 +689,92 @@ function renderDay(){
   const rooms=Object.entries(SALAS);
   let h='<table class="dv"><thead><tr><th class="time-col"></th>';
   rooms.forEach(([k,s])=>{h+=`<th class="dv-th-${k}">${s.label}</th>`;});
+  h+='<th class="dv-th-socios">⛔ Indisponíveis</th>';
   h+='</tr></thead><tbody>';
   HOURS.forEach(hh=>{
-    h+=`<tr><td class="time-col">${String(hh).padStart(2,'0')}:00</td>`;
+    const hs=String(hh).padStart(2,'0')+':00';
+    h+=`<tr><td class="time-col">${hs}</td>`;
     rooms.forEach(([k])=>{
       const evts=eventos.filter(e=>e.data===ds&&e.sala===k&&parseInt(e.hora_inicio.split(':')[0])===hh);
-      h+=`<td onclick="openModal(null,'${ds}','${String(hh).padStart(2,'0')}:00','${k}')">`;
+      h+=`<td onclick="openModal(null,'${ds}','${hs}','${k}')">`;
       evts.forEach(e=>{const s=SALAS[e.sala]||{label:e.sala,color:'#555'};h+=`<div class="dv-evt" style="background:${s.color}" onclick="event.stopPropagation();openModal('${e.id}')" title="${esc(e.titulo)}">${e.hora_inicio} ${esc(e.titulo)}</div>`;});
       h+='</td>';
     });
-    h+='</tr>';
+    h+=`<td onclick="openBloqueio(null,'${ds}','${hs}')">`;
+    blkStartingAt(ds,hh).forEach(b=>{h+=blkChip(b,'dv-evt');});
+    h+='</td></tr>';
   });
   h+='</tbody></table>';
   document.getElementById('cal-scroller').innerHTML=h;
+}
+
+// ===== BLOQUEIO DE HORÁRIO (por sócio, não reserva sala) =====
+// Pessoal: sem motivo, os outros veem só "Indisponível". Profissional: motivo obrigatório e visível.
+const DIA_INI='07:00',DIA_FIM='21:00';
+function blkStartingAt(ds,hh){
+  return bloqueios.filter(b=>b.data===ds&&Math.min(20,Math.max(7,parseInt(b.hora_inicio.split(':')[0])))===hh);
+}
+function blkTexto(b){return b.tipo==='profissional'?(b.motivo||'Compromisso'):'Indisponível';}
+function blkFaixa(b){return b.hora_inicio===DIA_INI&&b.hora_fim===DIA_FIM?'dia todo':`${b.hora_inicio}–${b.hora_fim}`;}
+function blkChip(b,cls){
+  const nome=(b.membro_nome||'').split(' ')[0];
+  const hora=blkFaixa(b)==='dia todo'?'':b.hora_inicio+' ';
+  return `<div class="${cls} blk-evt${b.tipo==='profissional'?' prof':''}" onclick="event.stopPropagation();clickBloqueio('${b.id}')" title="${esc(b.membro_nome+' · '+blkFaixa(b)+' · '+blkTexto(b))}">⛔ ${hora}${esc(nome)}: ${esc(blkTexto(b))}</div>`;
+}
+function clickBloqueio(id){
+  const b=bloqueios.find(x=>String(x.id)===String(id));if(!b)return;
+  if(b.membro_id===currentUser.id||currentUser.admin)openBloqueio(id);
+  else toast(`${b.membro_nome} · ${blkFaixa(b)} · ${blkTexto(b)}`);
+}
+function blkTipoSel(){return document.querySelector('input[name="blk-tipo"]:checked')?.value||'pessoal';}
+function onBlkTipo(){document.getElementById('blk-motivo-wrap').style.display=blkTipoSel()==='profissional'?'block':'none';}
+function onBlkDia(){document.getElementById('blk-horas').style.display=document.getElementById('blk-dia').checked?'none':'grid';}
+function openBloqueio(id,data,hora){
+  blkEditId=id||null;
+  const b=id?bloqueios.find(x=>String(x.id)===String(id)):null;
+  const today=new Date().toISOString().split('T')[0];
+  const tipo=b?.tipo||'pessoal';
+  document.querySelectorAll('input[name="blk-tipo"]').forEach(r=>{r.checked=r.value===tipo;});
+  document.getElementById('blk-motivo').value=b?.motivo||'';
+  document.getElementById('blk-data').value=b?.data||data||today;
+  document.getElementById('blk-dia').checked=!!b&&blkFaixa(b)==='dia todo';
+  const ini=b?.hora_inicio||hora||'09:00';
+  document.getElementById('blk-inicio').value=ini;
+  document.getElementById('blk-fim').value=b?.hora_fim||addHour(ini,1);
+  document.getElementById('blk-title').textContent=!b?'Bloquear horário':b.membro_id===currentUser.id?'Editar bloqueio':'Bloqueio de '+b.membro_nome;
+  document.getElementById('blk-excluir').style.display=b?'inline-block':'none';
+  onBlkTipo();onBlkDia();
+  document.getElementById('ov-bloqueio').classList.add('open');
+}
+async function saveBloqueio(){
+  const tipo=blkTipoSel();
+  const motivo=document.getElementById('blk-motivo').value.trim();
+  const data=document.getElementById('blk-data').value;
+  const dia=document.getElementById('blk-dia').checked;
+  const ini=dia?DIA_INI:document.getElementById('blk-inicio').value;
+  const fim=dia?DIA_FIM:document.getElementById('blk-fim').value;
+  if(!data||!ini||!fim){toast('Preencha data e horário');return;}
+  if(ini>=fim){toast('O término deve ser após o início');return;}
+  if(tipo==='profissional'&&!motivo){toast('Informe o motivo do compromisso');document.getElementById('blk-motivo').focus();return;}
+  const payload={data,hora_inicio:ini,hora_fim:fim,tipo,motivo:tipo==='profissional'?motivo:null};
+  const wasEdit=!!blkEditId;
+  const{error}=wasEdit
+    ?await sb.from('agenda_bloqueios').update(payload).eq('id',blkEditId)
+    :await sb.from('agenda_bloqueios').insert({...payload,membro_id:currentUser.id,membro_nome:currentUser.nome});
+  if(error){console.warn('bloqueio',error);toast('Erro ao salvar bloqueio');return;}
+  blkEditId=null;closeOv('ov-bloqueio');
+  await loadEventos();renderCal();
+  toast(wasEdit?'Bloqueio atualizado':'Horário bloqueado');
+}
+async function deleteBloqueio(){
+  if(!blkEditId||!confirm('Excluir este bloqueio?'))return;
+  const{error}=await sb.from('agenda_bloqueios').delete().eq('id',blkEditId);
+  if(error){toast('Erro ao excluir');return;}
+  blkEditId=null;closeOv('ov-bloqueio');
+  await loadEventos();renderCal();toast('Bloqueio excluído');
+}
+function bloqueiosConflitantes(ids,data,ini,fim){
+  return bloqueios.filter(b=>ids.includes(b.membro_id)&&b.data===data&&!(fim<=b.hora_inicio||ini>=b.hora_fim));
 }
 
 // ===== MODAL RESERVA =====
@@ -681,12 +795,12 @@ function addIntChip(id){
   chip.className='int-chip';chip.dataset.id=id;
   chip.innerHTML=`${esc(m.nome)}<button onclick="removeIntChip(${id})" title="Remover">×</button>`;
   document.getElementById('int-chips').appendChild(chip);
-  refreshIntSelect();
+  refreshIntSelect();checkConflict();
 }
 function removeIntChip(id){
   selectedIntIds=selectedIntIds.filter(x=>x!==id);
   document.querySelector(`.int-chip[data-id="${id}"]`)?.remove();
-  refreshIntSelect();
+  refreshIntSelect();checkConflict();
 }
 function getIntParticipants(){
   return selectedIntIds.map(id=>{
@@ -697,6 +811,7 @@ function getIntParticipants(){
 function openModal(id,data,hora,sala){
   editId=id||null;extCount=0;selectedIntIds=[];
   document.getElementById('conflict-warn').style.display='none';
+  document.getElementById('blk-warn').style.display='none';
   document.getElementById('ext-list').innerHTML='';
   document.getElementById('int-chips').innerHTML='';
   document.getElementById('email-info').style.display='none';
@@ -794,6 +909,11 @@ function checkConflict(){
   const data=document.getElementById('f-data').value;
   const ini=document.getElementById('f-inicio').value;
   const fim=document.getElementById('f-fim').value;
+  // Aviso (não impede salvar): participante interno com horário bloqueado
+  const blkEl=document.getElementById('blk-warn');
+  const lista=data&&ini&&fim&&ini<fim?bloqueiosConflitantes(selectedIntIds,data,ini,fim):[];
+  blkEl.style.display=lista.length?'block':'none';
+  blkEl.innerHTML=lista.length?'⚠ Indisponível neste horário: '+lista.map(b=>`<strong>${esc(b.membro_nome)}</strong> (${blkFaixa(b)}${b.tipo==='profissional'?' · '+esc(b.motivo):''})`).join(', ')+'. Você ainda pode salvar a reserva.':'';
   const btnSave=document.querySelector('#ov-modal .btn-p');
   if(!sala||!data||!ini||!fim){if(btnSave)btnSave.disabled=false;return;}
   const conflict=hasConflict(sala,data,ini,fim,editId);
@@ -996,8 +1116,7 @@ function renderAdmin(){
   el.innerHTML=membros.map(m=>`
     <div class="mbr-row" style="flex-wrap:wrap;gap:6px;">
       <div class="mbr-name" style="flex-basis:100%;margin-bottom:2px;">${esc(m.nome)} ${m.admin?'<span class="tag-admin">Admin</span>':''}</div>
-      <input type="email" placeholder="e-mail para convites" value="${esc(m.email||'')}" style="flex:1;min-width:160px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;" id="email-inp-${m.id}" onchange="saveEmailAdmin(${m.id})">
-      <input class="mbr-pin-inp" type="text" value="${esc(String(m.pin))}" maxlength="4" id="pin-inp-${m.id}" onchange="savePinAdmin(${m.id})">
+      <input type="email" placeholder="e-mail Google (login e convites)" value="${esc(m.email||'')}" style="flex:1;min-width:160px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;" id="email-inp-${m.id}" onchange="saveEmailAdmin(${m.id})">
       <button class="tog-ativo ${m.ativo?'on':'off'}" onclick="toggleAtivo(${m.id})">${m.ativo?'Ativo':'Inativo'}</button>
       ${m.id!==currentUser.id?`<button class="btn-d btn-sm" onclick="removeMembro(${m.id})">✕</button>`:''}
     </div>`).join('');
@@ -1025,13 +1144,6 @@ function renderAdminEventos(){
     </div>`;
   }).join('');
 }
-async function savePinAdmin(id){
-  const val=document.getElementById('pin-inp-'+id)?.value.trim();
-  if(!val||val.length!==4||!/^\d+$/.test(val)){toast('PIN inválido');return;}
-  await sb.from('agenda_membros').update({pin:val}).eq('id',id);
-  const m=membros.find(x=>x.id===id);if(m)m.pin=val;
-  toast('PIN salvo');
-}
 async function toggleAtivo(id){
   const m=membros.find(x=>x.id===id);if(!m)return;
   const ativo=!m.ativo;
@@ -1051,17 +1163,17 @@ async function adminDeleteEvento(id){
   await loadEventos();renderAdminEventos();toast('Reserva excluída');
 }
 function openAddMembro(){
-  ['adm-nome','adm-email','adm-pin'].forEach(id=>document.getElementById(id).value='');
+  ['adm-nome','adm-email'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('adm-is-admin').checked=false;
   document.getElementById('ov-add-mbr').classList.add('open');
 }
 async function saveMembro(){
   const nome=document.getElementById('adm-nome').value.trim();
   const email=document.getElementById('adm-email').value.trim();
-  const pin=document.getElementById('adm-pin').value.trim();
   const admin=document.getElementById('adm-is-admin').checked;
-  if(!nome||pin.length!==4||!/^\d+$/.test(pin)){toast('Nome e PIN de 4 dígitos obrigatórios');return;}
-  const{data,error}=await sb.from('agenda_membros').insert({nome,email:email||null,pin,admin,ativo:true}).select().single();
+  if(!nome||!/^\S+@\S+\.\S+$/.test(email)){toast('Nome e e-mail Google são obrigatórios');return;}
+  // Coluna pin é NOT NULL desde o login antigo por PIN; não é mais usada
+  const{data,error}=await sb.from('agenda_membros').insert({nome,email,pin:'0000',admin,ativo:true}).select().single();
   if(error){toast('Erro ao adicionar');return;}
   membros.push(data);renderAdmin();closeOv('ov-add-mbr');toast('Membro adicionado!');
 }
